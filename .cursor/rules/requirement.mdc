@@ -1,0 +1,153 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+# Cursor Rules for Video Player Desktop App
+
+## Project Overview
+
+Building a desktop video player app using Electron Forge + Vite + TypeScript + React for course management and progress tracking.
+
+## Tech Stack
+
+- **Frontend**: React 18+ with TypeScript
+- **Desktop Framework**: Electron Forge with Vite
+- **Database**: SQLite3 with better-sqlite3
+- **Video Player**: react-player
+- **File Operations**: Node.js fs/promises
+- **UI Components**: Consider using Tailwind CSS
+- **State Management**: React Context API or Zustand
+
+## Architecture Guidelines
+
+### 1. Project Structure
+
+```
+src/
+├── main/              # Electron main process
+├── renderer/          # React frontend
+├── shared/           # Shared types and utilities
+├── database/         # Database schemas and operations
+└── utils/            # File system and helper utilities
+```
+
+### 2. Main Process (Electron)
+
+- Handle file system operations (folder selection, file crawling)
+- Database operations using better-sqlite3
+- IPC communication with renderer
+- File path resolution and validation
+- Video file detection and metadata extraction
+
+### 3. Renderer Process (React)
+
+- UI components for course management
+- Video.js integration with custom controls
+- Progress tracking and display
+- Course navigation and section management
+- Real-time progress updates
+
+### 4. Database Operations
+
+- Use better-sqlite3 for synchronous operations
+- Implement proper error handling and transactions
+- Create indexes for performance optimization
+- Handle database migrations for schema updates
+
+## Development Guidelines
+
+### File System Operations
+
+- Use `electron.dialog.showOpenDialog()` for folder selection
+- Implement recursive directory crawling with proper error handling
+- Filter video files by extension (.mp4, .avi, .mkv, .webm, .mov)
+- Extract file metadata (duration, size, creation date)
+- Handle special characters and long file paths
+
+### Video Player Integration
+
+- Use Video.js with React wrapper (@videojs/react)
+- Implement custom progress tracking every 5-10 seconds
+- Save progress as percentage and absolute time
+- Handle video loading errors gracefully
+- Support common video formats and codecs
+
+### Database Best Practices
+
+- Use parameterized queries to prevent SQL injection
+- Implement proper foreign key constraints
+- Use transactions for batch operations
+- Add indexes on frequently queried columns
+- Handle concurrent access properly
+
+### UI/UX Guidelines
+
+- Implement responsive design for different screen sizes
+- Show loading states during file operations
+- Display progress bars for course completion
+- Implement keyboard shortcuts for video controls
+- Handle drag-and-drop for folder selection (optional)
+
+### Error Handling
+
+- Graceful handling of corrupted video files
+- Database connection error recovery
+- File permission and access error handling
+- User-friendly error messages with actionable solutions
+
+### Performance Optimization
+
+- Lazy load video thumbnails
+- Implement virtual scrolling for large course lists
+- Cache database queries where appropriate
+- Optimize video player memory usage
+- Use React.memo for expensive components
+
+## Code Style
+
+### TypeScript
+
+- Enable strict mode in tsconfig.json
+- Define comprehensive interfaces for all data structures
+- Use proper typing for IPC communication
+- Implement error types for better error handling
+
+### React Components
+
+- Use functional components with hooks
+- Implement proper prop types and default values
+- Use React.memo for performance optimization
+- Follow single responsibility principle
+
+### Naming Conventions
+
+- Use PascalCase for components and types
+- Use camelCase for functions and variables
+- Use SCREAMING_SNAKE_CASE for constants
+- Use kebab-case for file names
+
+## Security Considerations
+
+- Validate all file paths before database operations
+- Sanitize user inputs for database queries
+- Use contextIsolation in Electron for security
+- Implement proper CSP headers
+- Validate video file types before processing
+
+## Testing Strategy
+
+- Unit tests for database operations
+- Integration tests for IPC communication
+- E2E tests for critical user flows
+- Mock file system operations in tests
+- Test video player integration thoroughly
+
+## Build and Distribution
+
+- Configure proper Electron Forge makers for target platforms
+- Implement proper app signing for distribution
+- Handle database migrations during app updates
+- Optimize bundle size for faster startup
+- Configure auto-updater for seamless updates
