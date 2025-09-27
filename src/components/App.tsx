@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from "react";
-import CourseList from "./CourseList";
-import VideoPlayer from "./VideoPlayer";
-import FolderSelector from "./FolderSelector";
+import Layout from "./Layout";
+import Dashboard from "./Dashboard";
+import ModernCourseList from "./ModernCourseList";
+import ModernVideoPlayer from "./ModernVideoPlayer";
 import { CourseWithVideos, Video } from "../database/schema";
 
 const App: React.FC = () => {
+  const [currentPage, setCurrentPage] = useState("dashboard");
   const [courses, setCourses] = useState<CourseWithVideos[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<CourseWithVideos | null>(
     null
@@ -28,9 +30,21 @@ const App: React.FC = () => {
     }
   };
 
+  const handleNavigation = (page: string, data?: any) => {
+    setCurrentPage(page);
+    if (page === "course-detail" && data) {
+      setSelectedCourse(data);
+      setSelectedVideo(null);
+    } else if (page === "dashboard" || page === "courses") {
+      setSelectedCourse(null);
+      setSelectedVideo(null);
+    }
+  };
+
   const handleCourseSelect = (course: CourseWithVideos) => {
     setSelectedCourse(course);
     setSelectedVideo(null);
+    setCurrentPage("course-detail");
   };
 
   const handleVideoSelect = (video: Video) => {
@@ -40,147 +54,74 @@ const App: React.FC = () => {
   const handleBackToCourses = () => {
     setSelectedCourse(null);
     setSelectedVideo(null);
-  };
-
-  const handleBackToVideos = () => {
-    setSelectedVideo(null);
+    setCurrentPage("courses");
   };
 
   const handleCourseAdded = () => {
     loadCourses();
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading courses...</p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-gray-100">
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16">
-            <h1 className="text-2xl font-bold text-gray-900">Video Player</h1>
-            {selectedCourse && (
-              <button
-                onClick={handleBackToCourses}
-                className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                ← Back to Courses
-              </button>
-            )}
+  const renderCurrentPage = () => {
+    if (loading) {
+      return (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto mb-4"></div>
+            <p className="text-white">Loading...</p>
           </div>
         </div>
-      </header>
+      );
+    }
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {!selectedCourse ? (
-          <div className="space-y-8">
-            <FolderSelector onCourseAdded={handleCourseAdded} />
-            <CourseList
-              courses={courses}
-              onCourseSelect={handleCourseSelect}
-              onCourseDeleted={loadCourses}
-            />
-          </div>
-        ) : !selectedVideo ? (
-          <VideoPlayer
+    switch (currentPage) {
+      case "dashboard":
+        return <Dashboard onNavigate={handleNavigation} />;
+
+      case "courses":
+        return (
+          <ModernCourseList
+            courses={courses}
+            onCourseSelect={handleCourseSelect}
+            onCourseDeleted={loadCourses}
+            onCourseAdded={handleCourseAdded}
+          />
+        );
+
+      case "course-detail":
+        return selectedCourse ? (
+          <ModernVideoPlayer
             course={selectedCourse}
             onVideoSelect={handleVideoSelect}
             onBack={handleBackToCourses}
+            selectedVideo={selectedVideo}
           />
-        ) : (
-          <div className="space-y-4">
-            <button
-              onClick={handleBackToVideos}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              ← Back to Videos
-            </button>
-            <div className="bg-white rounded-lg shadow p-6">
-              <h2 className="text-xl font-semibold mb-4">
-                {selectedVideo.fileName}
-              </h2>
-              <div className="aspect-video bg-black rounded-lg overflow-hidden">
-                <video
-                  key={selectedVideo.id}
-                  controls
-                  className="w-full h-full"
-                  onLoadedMetadata={async (e) => {
-                    const video = e.target as HTMLVideoElement;
-                    try {
-                      // Get the last watched progress for this video
-                      const progress =
-                        await window.electronAPI.getVideoProgress(
-                          selectedVideo.id
-                        );
-                      if (
-                        progress &&
-                        progress.currentTime > 0 &&
-                        !progress.completed
-                      ) {
-                        // Resume from last position if not completed and has progress
-                        video.currentTime = progress.currentTime;
-                        console.log(
-                          `Resumed video at ${progress.currentTime} seconds`
-                        );
-                      }
-                    } catch (error) {
-                      console.error("Error loading video progress:", error);
-                    }
-                  }}
-                  onTimeUpdate={(e) => {
-                    const video = e.target as HTMLVideoElement;
-                    const currentTime = video.currentTime;
-                    const duration = video.duration;
-                    const progressPercentage = (currentTime / duration) * 100;
+        ) : null;
 
-                    // Update progress every 5 seconds
-                    if (Math.floor(currentTime) % 5 === 0) {
-                      window.electronAPI.updateVideoProgress(
-                        selectedVideo.id,
-                        currentTime,
-                        duration,
-                        progressPercentage
-                      );
-                    }
-                  }}
-                  onError={(e) => {
-                    console.error("Video loading error:", e);
-                    console.error("Failed to load:", selectedVideo.filePath);
-                  }}
-                  onLoadStart={() => {
-                    console.log(
-                      "Video loading started for:",
-                      selectedVideo.fileName
-                    );
-                  }}
-                  onCanPlay={() => {
-                    console.log("Video can play:", selectedVideo.fileName);
-                  }}
-                >
-                  <source
-                    src={`http://localhost:3001/${encodeURIComponent(selectedVideo.filePath)}`}
-                    type="video/mp4"
-                  />
-                  <p className="text-white p-4">
-                    Unable to load video: {selectedVideo.fileName}
-                    <br />
-                    Path: {selectedVideo.filePath}
-                  </p>
-                </video>
-              </div>
-            </div>
+      case "library":
+        return (
+          <div className="p-8">
+            <h1 className="text-4xl font-bold text-white mb-4">Library</h1>
+            <p className="text-gray-300">Coming soon...</p>
           </div>
-        )}
-      </main>
-    </div>
+        );
+
+      case "settings":
+        return (
+          <div className="p-8">
+            <h1 className="text-4xl font-bold text-white mb-4">Settings</h1>
+            <p className="text-gray-300">Coming soon...</p>
+          </div>
+        );
+
+      default:
+        return <Dashboard onNavigate={handleNavigation} />;
+    }
+  };
+
+  return (
+    <Layout currentPage={currentPage} onNavigate={handleNavigation}>
+      {renderCurrentPage()}
+    </Layout>
   );
 };
 

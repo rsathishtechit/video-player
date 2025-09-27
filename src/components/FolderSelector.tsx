@@ -62,54 +62,57 @@ const FolderSelector: React.FC<FolderSelectorProps> = ({ onCourseAdded }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-xl font-semibold mb-4">Add New Course</h2>
-
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Course Name
-          </label>
-          <input
-            type="text"
-            value={courseName}
-            onChange={(e) => setCourseName(e.target.value)}
-            placeholder="Enter course name"
-            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-            disabled={isLoading}
-          />
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            Course Folder
-          </label>
-          <div className="flex space-x-3">
-            <button
-              onClick={handleSelectFolder}
-              disabled={isLoading}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {selectedFolder ? "Change Folder" : "Select Folder"}
-            </button>
-            {selectedFolder && (
-              <div className="flex-1 px-3 py-2 bg-gray-50 border border-gray-300 rounded-md text-sm text-gray-700">
-                {selectedFolder}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {selectedFolder && courseName && (
-          <button
-            onClick={handleCreateCourse}
-            disabled={isLoading}
-            className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isLoading ? "Creating Course..." : "Create Course"}
-          </button>
-        )}
+    <div className="space-y-6">
+      <div>
+        <label className="block text-sm font-medium text-white mb-3">
+          Course Name
+        </label>
+        <input
+          type="text"
+          value={courseName}
+          onChange={(e) => setCourseName(e.target.value)}
+          placeholder="Enter course name"
+          className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          disabled={isLoading}
+        />
       </div>
+
+      <div>
+        <label className="block text-sm font-medium text-white mb-3">
+          Course Folder
+        </label>
+        <div className="space-y-3">
+          <button
+            onClick={handleSelectFolder}
+            disabled={isLoading}
+            className="w-full px-4 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-medium transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {selectedFolder ? "📁 Change Folder" : "📁 Select Folder"}
+          </button>
+          {selectedFolder && (
+            <div className="px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-sm text-gray-300 break-all">
+              {selectedFolder}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {selectedFolder && courseName && (
+        <button
+          onClick={handleCreateCourse}
+          disabled={isLoading}
+          className="w-full px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white font-medium rounded-xl transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {isLoading ? (
+            <span className="flex items-center justify-center">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+              Creating Course...
+            </span>
+          ) : (
+            "✨ Create Course"
+          )}
+        </button>
+      )}
     </div>
   );
 };

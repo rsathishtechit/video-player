@@ -360,6 +360,28 @@ const setupIpcHandlers = () => {
       return null;
     }
   });
+
+  ipcMain.handle("reset-video-progress", async (event, videoId: number) => {
+    try {
+      if (!db) {
+        return;
+      }
+      await db.resetVideoProgress(videoId);
+    } catch (error) {
+      console.error("Error resetting video progress:", error);
+    }
+  });
+
+  ipcMain.handle("reset-course-progress", async (event, courseId: number) => {
+    try {
+      if (!db) {
+        return;
+      }
+      await db.resetCourseProgress(courseId);
+    } catch (error) {
+      console.error("Error resetting course progress:", error);
+    }
+  });
 };
 
 // Clean up database and server when app is closing

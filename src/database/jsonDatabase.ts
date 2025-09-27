@@ -82,12 +82,13 @@ class JsonDatabase {
 
   async updateCourse(id: number, name: string): Promise<Course> {
     const course = this.courses.find((c) => c.id === id);
-    if (course) {
-      course.name = name;
-      course.updatedAt = new Date().toISOString();
-      await this.saveData();
+    if (!course) {
+      throw new Error(`Course with id ${id} not found`);
     }
-    return course!;
+    course.name = name;
+    course.updatedAt = new Date().toISOString();
+    await this.saveData();
+    return course;
   }
 
   async deleteCourse(id: number): Promise<void> {
@@ -124,12 +125,13 @@ class JsonDatabase {
 
   async updateVideo(id: number, updates: Partial<Video>): Promise<Video> {
     const video = this.videos.find((v) => v.id === id);
-    if (video) {
-      Object.assign(video, updates);
-      video.updatedAt = new Date().toISOString();
-      await this.saveData();
+    if (!video) {
+      throw new Error(`Video with id ${id} not found`);
     }
-    return video!;
+    Object.assign(video, updates);
+    video.updatedAt = new Date().toISOString();
+    await this.saveData();
+    return video;
   }
 
   async deleteVideo(id: number): Promise<void> {
@@ -179,6 +181,25 @@ class JsonDatabase {
 
   getAllVideoProgress(): VideoProgress[] {
     return [...this.videoProgress];
+  }
+
+  async resetVideoProgress(videoId: number): Promise<void> {
+    this.videoProgress = this.videoProgress.filter(
+      (vp) => vp.videoId !== videoId
+    );
+    await this.saveData();
+  }
+
+  async resetCourseProgress(courseId: number): Promise<void> {
+    // Get all videos for this course
+    const courseVideos = this.videos.filter((v) => v.courseId === courseId);
+    const videoIds = courseVideos.map((v) => v.id);
+
+    // Remove progress for all videos in this course
+    this.videoProgress = this.videoProgress.filter(
+      (vp) => !videoIds.includes(vp.videoId)
+    );
+    await this.saveData();
   }
 
   // Combined operations
