@@ -4,6 +4,8 @@ export interface Course {
   folderPath: string;
   createdAt: string;
   updatedAt: string;
+  lastAccessedAt?: string;
+  lastWatchedVideoId?: number; // Track the last watched video for the course
 }
 
 export interface Video {
@@ -15,6 +17,11 @@ export interface Video {
   fileSize: number;
   createdAt: string;
   updatedAt: string;
+  width?: number;
+  height?: number;
+  codec?: string;
+  bitrate?: number;
+  frameRate?: number;
 }
 
 export interface VideoProgress {
@@ -34,3 +41,11 @@ export interface CourseWithVideos extends Course {
   totalProgress: number;
 }
 
+export interface DailyLearningTime {
+  id: number;
+  date: string; // YYYY-MM-DD format
+  totalTimeSpent: number; // in seconds
+  sessionsCount: number;
+  createdAt: string;
+  updatedAt: string;
+}

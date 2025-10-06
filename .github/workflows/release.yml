@@ -1,0 +1,231 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*" # Triggers on version tags like v1.0.0, v2.1.3, etc.
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+            platform: darwin
+            arch: x64
+            artifact_name: video-player-darwin-x64
+            make_targets: --platform=darwin --arch=x64
+          - os: macos-latest
+            platform: darwin
+            arch: arm64
+            artifact_name: video-player-darwin-arm64
+            make_targets: --platform=darwin --arch=arm64
+          - os: windows-latest
+            platform: win32
+            arch: x64
+            artifact_name: video-player-win32-x64
+            make_targets: --platform=win32 --arch=x64
+          - os: ubuntu-latest
+            platform: linux
+            arch: x64
+            artifact_name: video-player-linux-x64
+            make_targets: --platform=linux --arch=x64
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "lts/*"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install native dependencies (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libnss3-dev libatk-bridge2.0-dev libdrm2-dev libxcomposite-dev libxdamage-dev libxrandr-dev libgbm-dev libxss1-dev libasound2-dev
+
+      - name: Build application
+        run: npm run make ${{ matrix.make_targets }}
+        env:
+          NODE_ENV: production
+
+      - name: List build outputs (Debug)
+        run: |
+          echo "Contents of out directory:"
+          find out -type f -name "*.zip" -o -name "*.deb" -o -name "*.rpm" -o -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" 2>/dev/null || echo "No build artifacts found"
+        shell: bash
+
+      - name: Prepare artifacts (macOS)
+        if: matrix.platform == 'darwin'
+        run: |
+          mkdir -p artifacts
+          # Find and copy ZIP files for macOS
+          find out -name "*.zip" -exec cp {} artifacts/ \;
+          # Rename to include architecture
+          cd artifacts
+          for file in *.zip; do
+            if [ -f "$file" ]; then
+              mv "$file" "${{ matrix.artifact_name }}.zip"
+            fi
+          done
+        shell: bash
+
+      - name: Prepare artifacts (Windows)
+        if: matrix.platform == 'win32'
+        run: |
+          mkdir -p artifacts
+          # Find and copy Windows installer
+          find out -name "*.exe" -exec cp {} artifacts/ \;
+          # Rename to include architecture
+          cd artifacts
+          for file in *.exe; do
+            if [ -f "$file" ]; then
+              mv "$file" "${{ matrix.artifact_name }}.exe"
+            fi
+          done
+        shell: bash
+
+      - name: Prepare artifacts (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          mkdir -p artifacts
+          # Find and copy DEB and RPM packages
+          find out -name "*.deb" -exec cp {} artifacts/ \;
+          find out -name "*.rpm" -exec cp {} artifacts/ \;
+          # Rename files to include architecture
+          cd artifacts
+          for file in *.deb; do
+            if [ -f "$file" ]; then
+              mv "$file" "${{ matrix.artifact_name }}.deb"
+            fi
+          done
+          for file in *.rpm; do
+            if [ -f "$file" ]; then
+              mv "$file" "${{ matrix.artifact_name }}.rpm"
+            fi
+          done
+        shell: bash
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: artifacts/
+          retention-days: 30
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./release-artifacts
+
+      - name: Display structure of downloaded files
+        run: ls -la ./release-artifacts/
+
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Video Player ${{ github.ref_name }}
+          body: |
+            ## Video Player ${{ github.ref_name }}
+
+            ### Downloads
+
+            **macOS:**
+            - Intel (x64): video-player-darwin-x64.zip
+            - Apple Silicon (arm64): video-player-darwin-arm64.zip
+
+            **Windows:**
+            - 64-bit: video-player-win32-x64.exe
+
+            **Linux:**
+            - Debian/Ubuntu: video-player-linux-x64.deb
+            - Red Hat/Fedora: video-player-linux-x64.rpm
+
+            ### Installation Instructions
+
+            **macOS:** Download the appropriate ZIP file for your Mac, extract it, and run the app. You may need to allow the app in System Preferences > Security & Privacy.
+
+            **Windows:** Download the .exe file and run it to install the application.
+
+            **Linux:** 
+            - For Debian/Ubuntu: `sudo dpkg -i video-player-linux-x64.deb`
+            - For Red Hat/Fedora: `sudo rpm -i video-player-linux-x64.rpm`
+
+            ### Changes
+            See the commit history for detailed changes in this release.
+          draft: false
+          prerelease: false
+
+      - name: Upload macOS Intel Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release-artifacts/video-player-darwin-x64/video-player-darwin-x64.zip
+          asset_name: video-player-darwin-x64.zip
+          asset_content_type: application/zip
+
+      - name: Upload macOS Apple Silicon Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release-artifacts/video-player-darwin-arm64/video-player-darwin-arm64.zip
+          asset_name: video-player-darwin-arm64.zip
+          asset_content_type: application/zip
+
+      - name: Upload Windows Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release-artifacts/video-player-win32-x64/video-player-win32-x64.exe
+          asset_name: video-player-win32-x64.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload Linux DEB Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release-artifacts/video-player-linux-x64/video-player-linux-x64.deb
+          asset_name: video-player-linux-x64.deb
+          asset_content_type: application/vnd.debian.binary-package
+
+      - name: Upload Linux RPM Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release-artifacts/video-player-linux-x64/video-player-linux-x64.rpm
+          asset_name: video-player-linux-x64.rpm
+          asset_content_type: application/x-rpm

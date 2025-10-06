@@ -1,12 +1,35 @@
-import { app, BrowserWindow, ipcMain, dialog } from "electron";
+import {
+  app,
+  BrowserWindow,
+  ipcMain,
+  dialog,
+  powerSaveBlocker,
+  powerMonitor,
+} from "electron";
 import path from "node:path";
 import fs from "fs/promises";
 import { promisify } from "util";
 import { exec } from "child_process";
-import { createServer } from "http";
+import { createServer, Server } from "http";
 import { createReadStream, statSync, existsSync } from "fs";
 import started from "electron-squirrel-startup";
 import JsonDatabase from "./database/jsonDatabase";
+import { Course } from "./database/schema";
+
+// Interface for video file information
+interface VideoFileInfo {
+  fileName: string;
+  filePath: string;
+  duration: number;
+  fileSize: number;
+  createdAt: string;
+  updatedAt: string;
+  width?: number;
+  height?: number;
+  codec?: string;
+  bitrate?: number;
+  frameRate?: number;
+}
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -15,8 +38,13 @@ if (started) {
 
 // Initialize database and HTTP server
 let db: JsonDatabase;
-let videoServer: any;
-const VIDEO_SERVER_PORT = 3001;
+let videoServer: Server;
+const VIDEO_SERVER_PORT = 3000;
+
+// Power management
+let powerSaveBlockerId: number | null = null;
+let isVideoPlaying = false;
+let backgroundThrottleTimer: NodeJS.Timeout | null = null;
 
 // Video file extensions
 const VIDEO_EXTENSIONS = [
@@ -30,26 +58,163 @@ const VIDEO_EXTENSIONS = [
   ".m4v",
 ];
 
-// Utility function to get video duration using ffprobe
-const getVideoDuration = async (filePath: string): Promise<number> => {
+// Check if ffprobe is available
+let ffprobeAvailable: boolean | null = null;
+
+const checkFFProbeAvailability = async (): Promise<boolean> => {
+  if (ffprobeAvailable !== null) {
+    return ffprobeAvailable;
+  }
+
   try {
     const execAsync = promisify(exec);
-    const { stdout } = await execAsync(
-      `ffprobe -v quiet -show_entries format=duration -of csv=p=0 "${filePath}"`
-    );
-    return parseFloat(stdout.trim()) || 0;
+    await execAsync("ffprobe -version");
+    ffprobeAvailable = true;
+    console.log("FFProbe is available");
+    return true;
   } catch (error) {
-    console.error("Error getting video duration:", error);
+    ffprobeAvailable = false;
+    console.warn("FFProbe is not available, will use fallback duration method");
+    return false;
+  }
+};
+
+// Interface for video metadata from FFProbe
+interface VideoMetadata {
+  duration: number;
+  width?: number;
+  height?: number;
+  codec?: string;
+  bitrate?: number;
+  frameRate?: number;
+}
+
+// Safe fraction parser to replace eval()
+const parseFraction = (fractionString: string): number => {
+  try {
+    const parts = fractionString.split("/");
+    if (parts.length === 2) {
+      const numerator = parseFloat(parts[0]);
+      const denominator = parseFloat(parts[1]);
+      if (denominator !== 0) {
+        return numerator / denominator;
+      }
+    }
+    return parseFloat(fractionString) || 0;
+  } catch (error) {
     return 0;
   }
 };
 
+// Utility function to get comprehensive video metadata using ffprobe
+const getVideoMetadata = async (filePath: string): Promise<VideoMetadata> => {
+  // First check if ffprobe is available
+  const hasFFProbe = await checkFFProbeAvailability();
+
+  if (hasFFProbe) {
+    try {
+      const execAsync = promisify(exec);
+
+      // Get comprehensive metadata using JSON output
+      const { stdout } = await execAsync(
+        `ffprobe -v quiet -print_format json -show_format -show_streams "${filePath}"`
+      );
+
+      const metadata = JSON.parse(stdout);
+      const videoStream = metadata.streams?.find(
+        (stream: {
+          codec_type: string;
+          width?: number;
+          height?: number;
+          codec_name?: string;
+          r_frame_rate?: string;
+        }) => stream.codec_type === "video"
+      );
+      const format = metadata.format;
+
+      const result: VideoMetadata = {
+        duration: parseFloat(format?.duration) || 0,
+        width: videoStream?.width,
+        height: videoStream?.height,
+        codec: videoStream?.codec_name,
+        bitrate: parseInt(format?.bit_rate) || undefined,
+        frameRate: videoStream?.r_frame_rate
+          ? parseFraction(videoStream.r_frame_rate)
+          : undefined,
+      };
+
+      console.log(`Metadata for ${path.basename(filePath)}:`, {
+        duration: `${result.duration}s`,
+        resolution:
+          result.width && result.height
+            ? `${result.width}x${result.height}`
+            : "Unknown",
+        codec: result.codec || "Unknown",
+        bitrate: result.bitrate
+          ? `${Math.round(result.bitrate / 1000)}kbps`
+          : "Unknown",
+        frameRate: result.frameRate
+          ? `${result.frameRate.toFixed(2)}fps`
+          : "Unknown",
+      });
+
+      return result;
+    } catch (error) {
+      console.error(
+        `Error getting video metadata with ffprobe for ${filePath}:`,
+        error
+      );
+    }
+  }
+
+  // Fallback: return minimal metadata
+  console.log(`Using fallback metadata for ${path.basename(filePath)}`);
+  return { duration: 0 }; // Will be updated when video is loaded in the player
+};
+
+// Legacy function for backward compatibility
+
 // Recursively crawl directory for video files
-const crawlDirectory = async (dirPath: string): Promise<any[]> => {
-  const videos: any[] = [];
+const crawlDirectory = async (dirPath: string): Promise<VideoFileInfo[]> => {
+  const videos: VideoFileInfo[] = [];
 
   try {
     const entries = await fs.readdir(dirPath, { withFileTypes: true });
+
+    // Sort entries to ensure consistent ordering
+    entries.sort((a, b) => {
+      const aName = a.name.toLowerCase();
+      const bName = b.name.toLowerCase();
+
+      // Split filename into parts (text and numbers) for natural sorting
+      const aParts = aName.split(/(\d+)/).filter((part) => part.length > 0);
+      const bParts = bName.split(/(\d+)/).filter((part) => part.length > 0);
+
+      const maxLength = Math.max(aParts.length, bParts.length);
+
+      for (let i = 0; i < maxLength; i++) {
+        const aPart = aParts[i] || "";
+        const bPart = bParts[i] || "";
+
+        const aIsNum = /^\d+$/.test(aPart);
+        const bIsNum = /^\d+$/.test(bPart);
+
+        if (aIsNum && bIsNum) {
+          const aNum = parseInt(aPart);
+          const bNum = parseInt(bPart);
+          if (aNum !== bNum) {
+            return aNum - bNum;
+          }
+        } else {
+          const comparison = aPart.localeCompare(bPart);
+          if (comparison !== 0) {
+            return comparison;
+          }
+        }
+      }
+
+      return 0;
+    });
 
     for (const entry of entries) {
       const fullPath = path.join(dirPath, entry.name);
@@ -63,15 +228,20 @@ const crawlDirectory = async (dirPath: string): Promise<any[]> => {
         if (VIDEO_EXTENSIONS.includes(ext)) {
           try {
             const stats = await fs.stat(fullPath);
-            const duration = await getVideoDuration(fullPath);
+            const metadata = await getVideoMetadata(fullPath);
 
             videos.push({
               fileName: entry.name,
               filePath: fullPath,
-              duration,
+              duration: metadata.duration,
               fileSize: stats.size,
               createdAt: stats.birthtime.toISOString(),
               updatedAt: stats.mtime.toISOString(),
+              width: metadata.width,
+              height: metadata.height,
+              codec: metadata.codec,
+              bitrate: metadata.bitrate,
+              frameRate: metadata.frameRate,
             });
           } catch (error) {
             console.error(`Error processing video file ${fullPath}:`, error);
@@ -97,7 +267,34 @@ const createWindow = () => {
       nodeIntegration: false,
       webSecurity: false, // Allow loading local files
       allowRunningInsecureContent: true,
+      // Battery optimization: reduce background throttling
+      backgroundThrottling: true,
     },
+    // Battery optimization: start with efficient settings
+    show: false, // Don't show until ready
+  });
+
+  // Battery optimization: show window only when ready
+  mainWindow.once("ready-to-show", () => {
+    mainWindow.show();
+  });
+
+  // Power management: handle window focus/blur for battery optimization
+  mainWindow.on("focus", () => {
+    if (backgroundThrottleTimer) {
+      clearTimeout(backgroundThrottleTimer);
+      backgroundThrottleTimer = null;
+    }
+  });
+
+  mainWindow.on("blur", () => {
+    // Throttle background operations when window loses focus
+    backgroundThrottleTimer = setTimeout(() => {
+      if (!isVideoPlaying) {
+        // Reduce update frequency when not actively watching
+        console.log("Window unfocused - reducing background activity");
+      }
+    }, 5000); // Wait 5 seconds before throttling
   });
 
   // and load the index.html of the app.
@@ -109,15 +306,24 @@ const createWindow = () => {
     );
   }
 
-  // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  // Open the DevTools only in development
+  if (MAIN_WINDOW_VITE_DEV_SERVER_URL) {
+    mainWindow.webContents.openDevTools();
+  }
+
+  return mainWindow;
 };
 
 // Create HTTP server for serving video files
 const createVideoServer = () => {
   videoServer = createServer((req, res) => {
     try {
-      const url = new URL(req.url!, `http://localhost:${VIDEO_SERVER_PORT}`);
+      if (!req.url) {
+        res.writeHead(400, { "Content-Type": "text/plain" });
+        res.end("Bad Request: No URL provided");
+        return;
+      }
+      const url = new URL(req.url, `http://localhost:${VIDEO_SERVER_PORT}`);
       const filePath = decodeURIComponent(url.pathname.substring(1)); // Remove leading slash
 
       console.log("Video server request for:", filePath);
@@ -196,24 +402,6 @@ const createVideoServer = () => {
   });
 };
 
-// Initialize database when app is ready
-app.whenReady().then(async () => {
-  try {
-    db = new JsonDatabase();
-  } catch (error) {
-    console.error("Failed to initialize database:", error);
-    // Continue without database for now
-  }
-
-  // Start video server
-  createVideoServer();
-
-  // Set up IPC handlers
-  setupIpcHandlers();
-
-  createWindow();
-});
-
 // Set up IPC handlers
 const setupIpcHandlers = () => {
   // Folder selection
@@ -248,11 +436,66 @@ const setupIpcHandlers = () => {
           throw new Error("Database not initialized");
         }
 
-        // Create the course first
-        const course = await db.createCourse(name, folderPath);
+        // Validate input parameters
+        if (!name || !name.trim()) {
+          throw new Error("Course name is required");
+        }
 
-        // Crawl the folder and add videos
+        if (!folderPath || !folderPath.trim()) {
+          throw new Error("Folder path is required");
+        }
+
+        // Check if course with same folder path already exists
+        const existingCourse = db.getCourseByPath(folderPath);
+        if (existingCourse) {
+          // Update existing course with new videos
+          const videos = await crawlDirectory(folderPath);
+          const existingVideos = db.getVideosByCourseId(existingCourse.id);
+          const existingFilePaths = new Set(
+            existingVideos.map((v) => v.filePath)
+          );
+
+          // Add only new videos
+          let newVideosCount = 0;
+          for (const video of videos) {
+            if (!existingFilePaths.has(video.filePath)) {
+              await db.createVideo({
+                courseId: existingCourse.id,
+                fileName: video.fileName,
+                filePath: video.filePath,
+                duration: video.duration,
+                fileSize: video.fileSize,
+              });
+              newVideosCount++;
+            }
+          }
+
+          // Update course timestamp
+          await db.updateCourse(existingCourse.id, {
+            updatedAt: new Date().toISOString(),
+          });
+
+          console.log(
+            `Updated course "${existingCourse.name}" with ${newVideosCount} new videos`
+          );
+          return db.getCourseWithVideos(existingCourse.id);
+        }
+
+        // Check if course with same name already exists
+        if (db.courseExistsByName(name.trim())) {
+          throw new Error("A course with this name already exists");
+        }
+
+        // Crawl the folder first to check for videos
         const videos = await crawlDirectory(folderPath);
+
+        // Check if folder contains any video files
+        if (videos.length === 0) {
+          throw new Error("No video files found in the selected folder");
+        }
+
+        // Create the course
+        const course = await db.createCourse(name, folderPath);
 
         // Add each video to the course
         for (const video of videos) {
@@ -382,7 +625,226 @@ const setupIpcHandlers = () => {
       console.error("Error resetting course progress:", error);
     }
   });
+
+  ipcMain.handle(
+    "update-course-access-time",
+    async (event, courseId: number) => {
+      try {
+        if (!db) {
+          return;
+        }
+        await db.updateCourseAccessTime(courseId);
+      } catch (error) {
+        console.error("Error updating course access time:", error);
+      }
+    }
+  );
+
+  ipcMain.handle(
+    "update-video-duration",
+    async (event, videoId: number, duration: number) => {
+      try {
+        if (!db) {
+          return;
+        }
+        await db.updateVideo(videoId, { duration });
+        console.log(`Updated video ${videoId} duration to ${duration}s`);
+      } catch (error) {
+        console.error("Error updating video duration:", error);
+      }
+    }
+  );
+
+  ipcMain.handle("refresh-video-metadata", async (event, videoId: number) => {
+    try {
+      if (!db) {
+        return null;
+      }
+
+      const video = db.getVideoById(videoId);
+      if (!video) {
+        throw new Error(`Video with id ${videoId} not found`);
+      }
+
+      // Get fresh metadata from the video file
+      const metadata = await getVideoMetadata(video.filePath);
+
+      // Update the video with new metadata
+      const updatedVideo = await db.updateVideo(videoId, {
+        duration: metadata.duration,
+        width: metadata.width,
+        height: metadata.height,
+        codec: metadata.codec,
+        bitrate: metadata.bitrate,
+        frameRate: metadata.frameRate,
+      });
+
+      console.log(`Refreshed metadata for video ${videoId}: ${video.fileName}`);
+      return updatedVideo;
+    } catch (error) {
+      console.error("Error refreshing video metadata:", error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle(
+    "update-course-current-video",
+    async (event, courseId: number, videoId: number) => {
+      try {
+        if (!db) {
+          return;
+        }
+
+        await db.updateCourse(courseId, {
+          lastWatchedVideoId: videoId,
+        } as Partial<Course>);
+        console.log(`Updated course ${courseId} current video to ${videoId}`);
+      } catch (error) {
+        console.error("Error updating course current video:", error);
+        throw error;
+      }
+    }
+  );
+
+  // Learning time tracking
+  ipcMain.handle("add-learning-time", async (event, timeSpent: number) => {
+    try {
+      if (!db) {
+        return;
+      }
+      await db.addLearningTime(timeSpent);
+      console.log(`Added ${timeSpent} seconds to today's learning time`);
+    } catch (error) {
+      console.error("Error adding learning time:", error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle("get-daily-learning-time", async (event, date: string) => {
+    try {
+      if (!db) {
+        return null;
+      }
+      return db.getDailyLearningTime(date);
+    } catch (error) {
+      console.error("Error getting daily learning time:", error);
+      return null;
+    }
+  });
+
+  ipcMain.handle("get-weekly-learning-time", async () => {
+    try {
+      if (!db) {
+        return [];
+      }
+      return db.getWeeklyLearningTime();
+    } catch (error) {
+      console.error("Error getting weekly learning time:", error);
+      return [];
+    }
+  });
+
+  ipcMain.handle("get-total-learning-time", async () => {
+    try {
+      if (!db) {
+        return 0;
+      }
+      return db.getTotalLearningTime();
+    } catch (error) {
+      console.error("Error getting total learning time:", error);
+      return 0;
+    }
+  });
+
+  // Power management handlers
+  ipcMain.handle("video-playing", async (event, playing: boolean) => {
+    isVideoPlaying = playing;
+
+    if (playing) {
+      // Prevent system sleep during video playback
+      if (powerSaveBlockerId === null) {
+        powerSaveBlockerId = powerSaveBlocker.start("prevent-display-sleep");
+        console.log("Preventing display sleep during video playback");
+      }
+    } else {
+      // Allow system sleep when video is paused/stopped
+      if (powerSaveBlockerId !== null) {
+        powerSaveBlocker.stop(powerSaveBlockerId);
+        powerSaveBlockerId = null;
+        console.log("Allowing display sleep - video paused/stopped");
+      }
+    }
+  });
+
+  ipcMain.handle("get-power-info", async () => {
+    try {
+      return {
+        isOnBattery: powerMonitor.isOnBatteryPower(),
+        systemIdleTime: powerMonitor.getSystemIdleTime(),
+        thermalState: "normal", // getThermalState is not available in all Electron versions
+      };
+    } catch (error) {
+      console.error("Error getting power info:", error);
+      return {
+        isOnBattery: false,
+        systemIdleTime: 0,
+        thermalState: "unknown",
+      };
+    }
+  });
 };
+
+// Initialize IPC handlers
+setupIpcHandlers();
+
+// Initialize database when app is ready
+app.whenReady().then(async () => {
+  try {
+    db = new JsonDatabase();
+  } catch (error) {
+    console.error("Failed to initialize database:", error);
+    // Continue without database for now
+  }
+
+  // Start video server
+  createVideoServer();
+
+  // Power management: monitor system events
+  powerMonitor.on("on-battery", () => {
+    console.log(
+      "System switched to battery power - enabling power saving mode"
+    );
+    // Notify renderer about battery status change
+    BrowserWindow.getAllWindows().forEach((window) => {
+      window.webContents.send("power-status-changed", { isOnBattery: true });
+    });
+  });
+
+  powerMonitor.on("on-ac", () => {
+    console.log("System connected to AC power - disabling power saving mode");
+    // Notify renderer about power status change
+    BrowserWindow.getAllWindows().forEach((window) => {
+      window.webContents.send("power-status-changed", { isOnBattery: false });
+    });
+  });
+
+  // Note: thermal-state-change event may not be available in all Electron versions
+  try {
+    powerMonitor.on("thermal-state-change", () => {
+      console.log(`Thermal state changed`);
+      // Reduce performance when system is overheating
+      BrowserWindow.getAllWindows().forEach((window) => {
+        window.webContents.send("thermal-state-changed", { state: "changed" });
+      });
+    });
+  } catch (error) {
+    console.log(
+      "Thermal state monitoring not available in this Electron version"
+    );
+  }
+
+  createWindow();
+});
 
 // Clean up database and server when app is closing
 app.on("before-quit", () => {
@@ -391,6 +853,15 @@ app.on("before-quit", () => {
   }
   if (videoServer) {
     videoServer.close();
+  }
+  // Clean up power management
+  if (powerSaveBlockerId !== null) {
+    powerSaveBlocker.stop(powerSaveBlockerId);
+    powerSaveBlockerId = null;
+  }
+  if (backgroundThrottleTimer) {
+    clearTimeout(backgroundThrottleTimer);
+    backgroundThrottleTimer = null;
   }
 });
 

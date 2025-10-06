@@ -55,6 +55,10 @@ const ModernCourseList: React.FC<ModernCourseListProps> = ({
   };
 
   const formatDuration = (seconds: number): string => {
+    if (seconds === 0 || isNaN(seconds)) {
+      return "Loading...";
+    }
+
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     if (hours > 0) {
@@ -67,8 +71,28 @@ const ModernCourseList: React.FC<ModernCourseListProps> = ({
     return course.videos.reduce((total, video) => total + video.duration, 0);
   };
 
+  const getRelativeTime = (dateString: string): string => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInMs = now.getTime() - date.getTime();
+    const diffInHours = diffInMs / (1000 * 60 * 60);
+    const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
+
+    if (diffInHours < 1) {
+      return "Just now";
+    } else if (diffInHours < 24) {
+      return `${Math.floor(diffInHours)}h ago`;
+    } else if (diffInDays < 7) {
+      return `${Math.floor(diffInDays)}d ago`;
+    } else if (diffInDays < 30) {
+      return `${Math.floor(diffInDays / 7)}w ago`;
+    } else {
+      return `${Math.floor(diffInDays / 30)}mo ago`;
+    }
+  };
+
   return (
-    <div className="p-8">
+    <div>
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -219,6 +243,14 @@ const ModernCourseList: React.FC<ModernCourseListProps> = ({
                       {formatDuration(getTotalDuration(course))}
                     </span>
                   </div>
+                  {course.lastAccessedAt && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-400">Last viewed</span>
+                      <span className="text-blue-400">
+                        {getRelativeTime(course.lastAccessedAt)}
+                      </span>
+                    </div>
+                  )}
                 </div>
 
                 {/* Progress Bar */}
@@ -255,6 +287,11 @@ const ModernCourseList: React.FC<ModernCourseListProps> = ({
                 <p className="text-gray-400 text-sm mb-2">
                   {course.completedVideos}/{course.totalVideos} videos •{" "}
                   {formatDuration(getTotalDuration(course))}
+                  {course.lastAccessedAt && (
+                    <span className="text-blue-400 ml-2">
+                      • Last viewed {getRelativeTime(course.lastAccessedAt)}
+                    </span>
+                  )}
                 </p>
                 <div className="w-full bg-gray-700 rounded-full h-2">
                   <div

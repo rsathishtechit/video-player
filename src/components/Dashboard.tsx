@@ -14,9 +14,34 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     completedVideos: 0,
     totalWatchTime: 0,
   });
+  const [todayLearningTime, setTodayLearningTime] = useState(0);
+  const [weeklyLearningTime, setWeeklyLearningTime] = useState<any[]>([]);
 
   useEffect(() => {
     loadDashboardData();
+
+    // Set up periodic refresh with battery-aware intervals
+    const refreshInterval = setInterval(() => {
+      // Only refresh if document is visible (battery optimization)
+      if (!document.hidden) {
+        loadDashboardData();
+      }
+    }, 30000); // Refresh every 30 seconds when visible
+
+    // Handle visibility change for battery optimization
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        // Refresh data when tab becomes visible
+        loadDashboardData();
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      clearInterval(refreshInterval);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
   }, []);
 
   const loadDashboardData = async () => {
@@ -56,7 +81,9 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
       for (const course of coursesData) {
         for (const video of course.videos) {
           try {
-            const progress = await window.electronAPI.getVideoProgress(video.id);
+            const progress = await window.electronAPI.getVideoProgress(
+              video.id
+            );
             if (progress && progress.currentTime > 0 && !progress.completed) {
               videosWithProgress.push({
                 ...video,
@@ -67,17 +94,34 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
               });
             }
           } catch (error) {
-            console.error(`Error loading progress for video ${video.id}:`, error);
+            console.error(
+              `Error loading progress for video ${video.id}:`,
+              error
+            );
           }
         }
       }
-      
+
       // Sort by most recently watched
-      videosWithProgress.sort((a, b) => 
-        new Date(b.lastWatchedAt).getTime() - new Date(a.lastWatchedAt).getTime()
+      videosWithProgress.sort(
+        (a, b) =>
+          new Date(b.lastWatchedAt).getTime() -
+          new Date(a.lastWatchedAt).getTime()
       );
-      
+
       setRecentVideos(videosWithProgress.slice(0, 5));
+
+      // Load learning time data
+      try {
+        const today = new Date().toISOString().split("T")[0];
+        const todayData = await window.electronAPI.getDailyLearningTime(today);
+        setTodayLearningTime(todayData?.totalTimeSpent || 0);
+
+        const weeklyData = await window.electronAPI.getWeeklyLearningTime();
+        setWeeklyLearningTime(weeklyData);
+      } catch (error) {
+        console.error("Error loading learning time data:", error);
+      }
     } catch (error) {
       console.error("Error loading dashboard data:", error);
     }
@@ -87,6 +131,27 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
     return `${hours}h ${minutes}m`;
+  };
+
+  const getProgressMessage = () => {
+    const completionRate =
+      stats.totalVideos > 0
+        ? (stats.completedVideos / stats.totalVideos) * 100
+        : 0;
+
+    if (completionRate === 0) {
+      return "🚀 Ready to start your learning journey? Pick a course and begin!";
+    } else if (completionRate < 25) {
+      return "🌱 Great start! You're building momentum. Keep going!";
+    } else if (completionRate < 50) {
+      return "📈 You're making solid progress! You're a quarter of the way there!";
+    } else if (completionRate < 75) {
+      return "🔥 Fantastic work! You're over halfway through your courses!";
+    } else if (completionRate < 90) {
+      return "⭐ Amazing dedication! You're almost there - the finish line is in sight!";
+    } else {
+      return "🎉 Incredible achievement! You've completed most of your courses. You're a learning champion!";
+    }
   };
 
   const StatCard = ({ title, value, subtitle, icon, gradient }: any) => (
@@ -110,13 +175,20 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
   );
 
   return (
-    <div className="p-8">
+    <div>
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-4xl font-bold text-white mb-2">Welcome back! 👋</h1>
-        <p className="text-gray-300 text-lg">
+        <p className="text-gray-300 text-lg mb-4">
           Here's what's happening with your learning journey
         </p>
+
+        {/* Progress Message */}
+        <div className="bg-gradient-to-r from-blue-500/20 to-purple-600/20 backdrop-blur-xl rounded-2xl border border-blue-400/30 p-4">
+          <p className="text-white font-medium text-center">
+            {getProgressMessage()}
+          </p>
+        </div>
       </div>
 
       {/* Stats Grid */}
@@ -140,12 +212,24 @@ const Dashboard: React.FC<DashboardProps> = ({ onNavigate }) => {
           icon="✅"
           gradient="from-green-500 to-green-600"
         />
-        <StatCard
-          title="Watch Time"
-          value={formatTime(stats.totalWatchTime)}
-          icon="⏱️"
-          gradient="from-orange-500 to-orange-600"
-        />
+        <div className="relative">
+          <StatCard
+            title="Today's Learning"
+            value={formatTime(todayLearningTime)}
+            subtitle={
+              todayLearningTime > 0 ? "Keep it up!" : "Start learning today"
+            }
+            icon="📚"
+            gradient="from-orange-500 to-orange-600"
+          />
+          <button
+            onClick={loadDashboardData}
+            className="absolute top-2 right-2 w-6 h-6 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center text-white text-xs transition-all duration-200"
+            title="Refresh learning time"
+          >
+            ↻
+          </button>
+        </div>
       </div>
 
       {/* Quick Actions */}

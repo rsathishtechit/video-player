@@ -46,6 +46,50 @@ A desktop video player application built with Electron, React, and TypeScript fo
 npm run make
 ```
 
+## Releases
+
+This project uses GitHub Actions to automatically build and publish executables for multiple platforms when you create a git tag.
+
+### Creating a Release
+
+1. **Tag your release**: Create and push a version tag (must start with 'v'):
+
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+
+2. **Automatic Build**: GitHub Actions will automatically:
+   - Build executables for macOS (Intel & Apple Silicon), Windows, and Linux
+   - Create a GitHub release with all platform binaries
+   - Upload artifacts with proper naming conventions
+
+### Supported Platforms
+
+The automated release process builds for:
+
+- **macOS**:
+  - Intel (x64): `video-player-darwin-x64.zip`
+  - Apple Silicon (arm64): `video-player-darwin-arm64.zip`
+- **Windows**:
+  - 64-bit: `video-player-win32-x64.exe`
+- **Linux**:
+  - Debian/Ubuntu: `video-player-linux-x64.deb`
+  - Red Hat/Fedora: `video-player-linux-x64.rpm`
+
+### Manual Building
+
+To build for a specific platform locally:
+
+```bash
+# macOS (current platform)
+npm run make
+
+# Cross-platform builds (requires appropriate setup)
+npm run make -- --platform=win32 --arch=x64
+npm run make -- --platform=linux --arch=x64
+```
+
 ## Usage
 
 1. **Add a Course**: Click "Select Folder" to choose a folder containing video files

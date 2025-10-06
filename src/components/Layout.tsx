@@ -1,22 +1,32 @@
 import React from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import Breadcrumb from "./Breadcrumb";
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentPage: string;
-  onNavigate: (page: string) => void;
 }
 
-const Layout: React.FC<LayoutProps> = ({
-  children,
-  currentPage,
-  onNavigate,
-}) => {
+const Layout: React.FC<LayoutProps> = ({ children }) => {
+  const navigate = useNavigate();
+  const location = useLocation();
   const navItems = [
-    { id: "dashboard", label: "Dashboard", icon: "📊" },
-    { id: "courses", label: "Courses", icon: "🎓" },
-    { id: "library", label: "Library", icon: "📚" },
-    { id: "settings", label: "Settings", icon: "⚙️" },
+    { id: "dashboard", label: "Dashboard", icon: "📊", path: "/" },
+    { id: "courses", label: "Courses", icon: "🎓", path: "/courses" },
+    { id: "library", label: "Library", icon: "📚", path: "/library" },
+    { id: "settings", label: "Settings", icon: "⚙️", path: "/settings" },
   ];
+
+  const getCurrentPage = () => {
+    const path = location.pathname;
+    if (path === "/") return "dashboard";
+    if (path.startsWith("/course/")) return "courses";
+    if (path === "/courses") return "courses";
+    if (path === "/library") return "library";
+    if (path === "/settings") return "settings";
+    return "dashboard";
+  };
+
+  const currentPage = getCurrentPage();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
@@ -39,7 +49,7 @@ const Layout: React.FC<LayoutProps> = ({
               {navItems.map((item) => (
                 <li key={item.id}>
                   <button
-                    onClick={() => onNavigate(item.id)}
+                    onClick={() => navigate(item.path)}
                     className={`w-full flex items-center px-4 py-3 rounded-xl transition-all duration-200 ${
                       currentPage === item.id
                         ? "bg-gradient-to-r from-blue-500 to-purple-600 text-white shadow-lg"
@@ -65,7 +75,12 @@ const Layout: React.FC<LayoutProps> = ({
 
       {/* Main Content */}
       <div className="ml-64">
-        <div className="min-h-screen">{children}</div>
+        <div className="min-h-screen">
+          <div className="p-6">
+            <Breadcrumb />
+            {children}
+          </div>
+        </div>
       </div>
     </div>
   );

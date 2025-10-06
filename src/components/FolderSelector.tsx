@@ -8,9 +8,13 @@ const FolderSelector: React.FC<FolderSelectorProps> = ({ onCourseAdded }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [courseName, setCourseName] = useState("");
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const handleSelectFolder = async () => {
     try {
+      setError(null);
+      setSuccess(null);
       const folderPath = await window.electronAPI.selectFolder();
       if (folderPath) {
         setSelectedFolder(folderPath);
@@ -20,17 +24,20 @@ const FolderSelector: React.FC<FolderSelectorProps> = ({ onCourseAdded }) => {
       }
     } catch (error) {
       console.error("Error selecting folder:", error);
+      setError("Failed to select folder. Please try again.");
     }
   };
 
   const handleCreateCourse = async () => {
     if (!selectedFolder || !courseName.trim()) {
-      alert("Please select a folder and enter a course name");
+      setError("Please select a folder and enter a course name");
       return;
     }
 
     try {
       setIsLoading(true);
+      setError(null);
+      setSuccess(null);
 
       // Create the course (this will also crawl the folder and add videos)
       const course = await window.electronAPI.createCourse(
@@ -38,24 +45,27 @@ const FolderSelector: React.FC<FolderSelectorProps> = ({ onCourseAdded }) => {
         selectedFolder
       );
 
-      if (course.totalVideos === 0) {
-        alert("No video files found in the selected folder");
-        return;
-      }
-
       // Reset form
       setCourseName("");
       setSelectedFolder(null);
 
+      // Show success message
+      setSuccess(
+        `Course "${courseName}" created successfully with ${course.totalVideos} videos!`
+      );
+
       // Notify parent component
       onCourseAdded();
 
-      alert(
-        `Course "${courseName}" created successfully with ${course.totalVideos} videos!`
-      );
-    } catch (error) {
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error: any) {
       console.error("Error creating course:", error);
-      alert("Error creating course. Please try again.");
+
+      // Show specific error messages based on the error
+      const errorMessage =
+        error.message || "Error creating course. Please try again.";
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -63,6 +73,26 @@ const FolderSelector: React.FC<FolderSelectorProps> = ({ onCourseAdded }) => {
 
   return (
     <div className="space-y-6">
+      {/* Error Message */}
+      {error && (
+        <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+          <div className="flex items-center">
+            <span className="text-red-400 text-xl mr-3">⚠️</span>
+            <p className="text-red-400 text-sm">{error}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Success Message */}
+      {success && (
+        <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-xl">
+          <div className="flex items-center">
+            <span className="text-green-400 text-xl mr-3">✅</span>
+            <p className="text-green-400 text-sm">{success}</p>
+          </div>
+        </div>
+      )}
+
       <div>
         <label className="block text-sm font-medium text-white mb-3">
           Course Name
@@ -70,7 +100,11 @@ const FolderSelector: React.FC<FolderSelectorProps> = ({ onCourseAdded }) => {
         <input
           type="text"
           value={courseName}
-          onChange={(e) => setCourseName(e.target.value)}
+          onChange={(e) => {
+            setCourseName(e.target.value);
+            setError(null);
+            setSuccess(null);
+          }}
           placeholder="Enter course name"
           className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           disabled={isLoading}
