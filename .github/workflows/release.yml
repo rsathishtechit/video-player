@@ -169,7 +169,11 @@ jobs:
 
                       ### Installation Instructions
 
-                      **macOS:** Download the appropriate ZIP file for your Mac, extract it, and run the app. You may need to allow the app in System Preferences > Security & Privacy.
+                      **macOS:** Download the appropriate ZIP file for your Mac, extract it. If you get a "damaged" error, run this command in Terminal:
+                      ```
+                      xattr -cr /path/to/video-player.app
+                      ```
+                      Then right-click the app and select "Open" to bypass Gatekeeper.
 
                       **Windows:** Download the .exe file and run it to install the application.
 
