@@ -48,7 +48,12 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Generate icons
+      - name: Generate icons (macOS)
+        if: matrix.os == 'macos-latest'
+        run: npm run generate-icons-macos
+
+      - name: Generate icons (Windows/Linux)
+        if: matrix.os != 'macos-latest'
         run: npm run generate-icons
 
       - name: Install native dependencies (Linux)

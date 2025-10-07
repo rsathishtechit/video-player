@@ -10,7 +10,8 @@
     "make": "electron-forge make",
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx .",
-    "generate-icons": "node scripts/generate-icons.js && node scripts/generate-ico-minimal.js && iconutil -c icns assets/icons/icon.iconset"
+    "generate-icons": "node scripts/generate-icons.js && node scripts/generate-ico-minimal.js",
+    "generate-icons-macos": "npm run generate-icons && iconutil -c icns assets/icons/icon.iconset"
   },
   "keywords": [],
   "author": "sathish",
