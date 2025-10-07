@@ -8,6 +8,11 @@ import {
 } from "electron";
 import path from "node:path";
 import fs from "fs/promises";
+
+// Prevent Squirrel.Windows from launching the app multiple times during installation/updating/uninstallation
+if (require("electron-squirrel-startup") === true) {
+  app.quit();
+}
 import { promisify } from "util";
 import { exec } from "child_process";
 import { createServer, Server } from "http";

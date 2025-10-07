@@ -251,7 +251,7 @@ class JsonDatabase {
     // Get existing progress to preserve manual completion status
     const existingProgress = this.getVideoProgress(videoId);
     const wasManuallyCompleted = existingProgress?.manuallyCompleted || false;
-    
+
     // Auto-complete at 90% (consistent with UI), but don't override manual completion
     const autoCompleted = progressPercentage >= 90;
     const completed = wasManuallyCompleted || autoCompleted;
@@ -288,7 +288,7 @@ class JsonDatabase {
     const existingIndex = this.videoProgress.findIndex(
       (vp) => vp.videoId === videoId
     );
-    
+
     if (existingIndex >= 0) {
       // Update existing progress
       this.videoProgress[existingIndex] = {
@@ -299,7 +299,7 @@ class JsonDatabase {
       };
     } else {
       // Create new progress entry
-      const video = this.videos.find(v => v.id === videoId);
+      const video = this.videos.find((v) => v.id === videoId);
       if (video) {
         const progress: VideoProgress = {
           id: ++this.idCounter,
@@ -314,9 +314,15 @@ class JsonDatabase {
         this.videoProgress.push(progress);
       }
     }
-    
+
     await this.saveData();
-    return this.getVideoProgress(videoId)!;
+    const progress = this.getVideoProgress(videoId);
+    if (!progress) {
+      throw new Error(
+        `Failed to get video progress after marking as completed`
+      );
+    }
+    return progress;
   }
 
   // Mark video as incomplete (reset completion)
@@ -324,7 +330,7 @@ class JsonDatabase {
     const existingIndex = this.videoProgress.findIndex(
       (vp) => vp.videoId === videoId
     );
-    
+
     if (existingIndex >= 0) {
       this.videoProgress[existingIndex] = {
         ...this.videoProgress[existingIndex],
@@ -335,7 +341,7 @@ class JsonDatabase {
       await this.saveData();
       return this.videoProgress[existingIndex];
     }
-    
+
     return null;
   }
 

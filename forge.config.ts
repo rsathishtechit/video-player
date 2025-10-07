@@ -3,6 +3,8 @@ import { MakerSquirrel } from "@electron-forge/maker-squirrel";
 import { MakerZIP } from "@electron-forge/maker-zip";
 import { MakerDeb } from "@electron-forge/maker-deb";
 import { MakerRpm } from "@electron-forge/maker-rpm";
+import { MakerSnap } from "@electron-forge/maker-snap";
+import { PublisherGithub } from "@electron-forge/publisher-github";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
 import { FuseV1Options, FuseVersion } from "@electron/fuses";
@@ -29,6 +31,25 @@ const config: ForgeConfig = {
       options: {
         icon: "assets/icons/linux/256x256.png",
       },
+    }),
+    new MakerSnap({
+      options: {
+        summary: "A modern desktop video player for offline course management",
+        description: "Nilaa Player is a desktop video player designed for managing offline courses with progress tracking, section navigation, and a modern interface.",
+        grade: "stable",
+        confinement: "strict",
+        icon: "assets/icons/linux/512x512.png",
+        categories: ["AudioVideo", "Player"],
+      },
+    }),
+  ],
+  publishers: [
+    new PublisherGithub({
+      repository: {
+        owner: "rsathishtechit", // Replace with your GitHub username
+        name: "video-player", // Replace with your repository name
+      },
+      prerelease: true, // Set to false for stable releases
     }),
   ],
   plugins: [

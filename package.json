@@ -20,11 +20,14 @@
     "@electron-forge/cli": "^7.9.0",
     "@electron-forge/maker-deb": "^7.9.0",
     "@electron-forge/maker-rpm": "^7.9.0",
+    "@electron-forge/maker-snap": "^7.9.0",
     "@electron-forge/maker-squirrel": "^7.9.0",
     "@electron-forge/maker-zip": "^7.9.0",
     "@electron-forge/plugin-auto-unpack-natives": "^7.9.0",
     "@electron-forge/plugin-fuses": "^7.9.0",
     "@electron-forge/plugin-vite": "^7.9.0",
+    "@electron-forge/publisher-github": "^7.9.0",
+    "@electron-forge/shared-types": "^7.9.0",
     "@electron/fuses": "^1.8.0",
     "@types/electron-squirrel-startup": "^1.0.2",
     "@types/sharp": "^0.31.1",
@@ -51,7 +54,6 @@
     "react-dom": "^19.1.1",
     "react-player": "^3.3.3",
     "react-router-dom": "^7.9.3",
-    "tailwindcss": "^4.0.0",
-    "video.js": "^8.23.4"
+    "tailwindcss": "^4.0.0"
   }
 }

@@ -43,34 +43,52 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "lts/*"
-          cache: "npm"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - name: Get pnpm store directory
+        id: pnpm-cache
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-cache.outputs.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
 
       - name: Install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
 
       - name: Generate icons (macOS)
         if: matrix.os == 'macos-latest'
-        run: npm run generate-icons-macos
+        run: pnpm run generate-icons-macos
 
       - name: Generate icons (Windows/Linux)
         if: matrix.os != 'macos-latest'
-        run: npm run generate-icons
+        run: pnpm run generate-icons
 
       - name: Install native dependencies (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libnss3-dev libatk-bridge2.0-dev libdrm-dev libxcomposite-dev libxdamage-dev libxrandr-dev libgbm-dev libxss-dev libasound2-dev libgtk-3-dev libxshmfence-dev
+          sudo apt-get install -y libnss3-dev libatk-bridge2.0-dev libdrm-dev libxcomposite-dev libxdamage-dev libxrandr-dev libgbm-dev libxss-dev libasound2-dev libgtk-3-dev libxshmfence-dev snapcraft
 
       - name: Build application
-        run: npm run make ${{ matrix.make_targets }}
+        run: pnpm run make ${{ matrix.make_targets }}
         env:
           NODE_ENV: production
 
       - name: List build outputs (Debug)
         run: |
           echo "Contents of out directory:"
-          find out -type f -name "*.zip" -o -name "*.deb" -o -name "*.rpm" -o -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" 2>/dev/null || echo "No build artifacts found"
+          find out -type f -name "*.zip" -o -name "*.deb" -o -name "*.rpm" -o -name "*.snap" -o -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" 2>/dev/null || echo "No build artifacts found"
         shell: bash
 
       - name: Prepare artifacts (macOS)
@@ -107,9 +125,10 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           mkdir -p artifacts
-          # Find and copy DEB and RPM packages
+          # Find and copy DEB, RPM, and Snap packages
           find out -name "*.deb" -exec cp {} artifacts/ \;
           find out -name "*.rpm" -exec cp {} artifacts/ \;
+          find out -name "*.snap" -exec cp {} artifacts/ \;
           # Rename files to include architecture
           cd artifacts
           for file in *.deb; do
@@ -120,6 +139,11 @@ jobs:
           for file in *.rpm; do
             if [ -f "$file" ]; then
               mv "$file" "${{ matrix.artifact_name }}.rpm"
+            fi
+          done
+          for file in *.snap; do
+            if [ -f "$file" ]; then
+              mv "$file" "${{ matrix.artifact_name }}.snap"
             fi
           done
         shell: bash
@@ -174,6 +198,7 @@ jobs:
             **Linux:**
             - Debian/Ubuntu: nilaa-player-linux-x64.deb
             - Red Hat/Fedora: nilaa-player-linux-x64.rpm
+            - Snap (Universal): nilaa-player-linux-x64.snap
 
             ### Installation Instructions
 
@@ -188,6 +213,7 @@ jobs:
             **Linux:** 
             - For Debian/Ubuntu: `sudo dpkg -i nilaa-player-linux-x64.deb`
             - For Red Hat/Fedora: `sudo rpm -i nilaa-player-linux-x64.rpm`
+            - For Snap (any distro): `sudo snap install nilaa-player-linux-x64.snap --dangerous`
 
             ### Changes
             See the commit history for detailed changes in this release.
@@ -243,3 +269,13 @@ jobs:
           asset_path: ./release-artifacts/nilaa-player-linux-x64/nilaa-player-linux-x64.rpm
           asset_name: nilaa-player-linux-x64.rpm
           asset_content_type: application/x-rpm
+
+      - name: Upload Linux Snap Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./release-artifacts/nilaa-player-linux-x64/nilaa-player-linux-x64.snap
+          asset_name: nilaa-player-linux-x64.snap
+          asset_content_type: application/vnd.snap
