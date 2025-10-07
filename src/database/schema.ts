@@ -32,6 +32,7 @@ export interface VideoProgress {
   progressPercentage: number;
   lastWatchedAt: string;
   completed: boolean;
+  manuallyCompleted?: boolean; // Track if user manually marked as complete
 }
 
 export interface CourseWithVideos extends Course {

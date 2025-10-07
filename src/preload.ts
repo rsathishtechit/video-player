@@ -45,6 +45,8 @@ export interface ElectronAPI {
   getVideoProgress: (videoId: number) => Promise<VideoProgress | null>;
   resetVideoProgress: (videoId: number) => Promise<void>;
   resetCourseProgress: (courseId: number) => Promise<void>;
+  markVideoCompleted: (videoId: number) => Promise<VideoProgress | null>;
+  markVideoIncomplete: (videoId: number) => Promise<VideoProgress | null>;
   updateCourseAccessTime: (courseId: number) => Promise<void>;
   updateVideoDuration: (videoId: number, duration: number) => Promise<void>;
   updateCourseCurrentVideo: (
@@ -108,6 +110,10 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("reset-video-progress", videoId),
   resetCourseProgress: (courseId: number) =>
     ipcRenderer.invoke("reset-course-progress", courseId),
+  markVideoCompleted: (videoId: number) =>
+    ipcRenderer.invoke("mark-video-completed", videoId),
+  markVideoIncomplete: (videoId: number) =>
+    ipcRenderer.invoke("mark-video-incomplete", videoId),
   updateCourseAccessTime: (courseId: number) =>
     ipcRenderer.invoke("update-course-access-time", courseId),
   updateVideoDuration: (videoId: number, duration: number) =>

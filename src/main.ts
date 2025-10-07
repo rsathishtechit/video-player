@@ -626,6 +626,32 @@ const setupIpcHandlers = () => {
     }
   });
 
+  // Mark video as completed manually
+  ipcMain.handle("mark-video-completed", async (event, videoId: number) => {
+    try {
+      if (!db) {
+        return null;
+      }
+      return await db.markVideoAsCompleted(videoId);
+    } catch (error) {
+      console.error("Error marking video as completed:", error);
+      return null;
+    }
+  });
+
+  // Mark video as incomplete
+  ipcMain.handle("mark-video-incomplete", async (event, videoId: number) => {
+    try {
+      if (!db) {
+        return null;
+      }
+      return await db.markVideoAsIncomplete(videoId);
+    } catch (error) {
+      console.error("Error marking video as incomplete:", error);
+      return null;
+    }
+  });
+
   ipcMain.handle(
     "update-course-access-time",
     async (event, courseId: number) => {

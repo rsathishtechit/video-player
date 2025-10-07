@@ -248,7 +248,13 @@ class JsonDatabase {
     duration: number,
     progressPercentage: number
   ): Promise<VideoProgress> {
-    const completed = progressPercentage >= 95;
+    // Get existing progress to preserve manual completion status
+    const existingProgress = this.getVideoProgress(videoId);
+    const wasManuallyCompleted = existingProgress?.manuallyCompleted || false;
+    
+    // Auto-complete at 90% (consistent with UI), but don't override manual completion
+    const autoCompleted = progressPercentage >= 90;
+    const completed = wasManuallyCompleted || autoCompleted;
 
     const existingIndex = this.videoProgress.findIndex(
       (vp) => vp.videoId === videoId
@@ -264,6 +270,7 @@ class JsonDatabase {
       progressPercentage,
       lastWatchedAt: new Date().toISOString(),
       completed,
+      manuallyCompleted: wasManuallyCompleted,
     };
 
     if (existingIndex >= 0) {
@@ -274,6 +281,62 @@ class JsonDatabase {
 
     await this.saveData();
     return progress;
+  }
+
+  // Mark video as manually completed
+  async markVideoAsCompleted(videoId: number): Promise<VideoProgress> {
+    const existingIndex = this.videoProgress.findIndex(
+      (vp) => vp.videoId === videoId
+    );
+    
+    if (existingIndex >= 0) {
+      // Update existing progress
+      this.videoProgress[existingIndex] = {
+        ...this.videoProgress[existingIndex],
+        completed: true,
+        manuallyCompleted: true,
+        lastWatchedAt: new Date().toISOString(),
+      };
+    } else {
+      // Create new progress entry
+      const video = this.videos.find(v => v.id === videoId);
+      if (video) {
+        const progress: VideoProgress = {
+          id: ++this.idCounter,
+          videoId,
+          currentTime: video.duration,
+          duration: video.duration,
+          progressPercentage: 100,
+          lastWatchedAt: new Date().toISOString(),
+          completed: true,
+          manuallyCompleted: true,
+        };
+        this.videoProgress.push(progress);
+      }
+    }
+    
+    await this.saveData();
+    return this.getVideoProgress(videoId)!;
+  }
+
+  // Mark video as incomplete (reset completion)
+  async markVideoAsIncomplete(videoId: number): Promise<VideoProgress | null> {
+    const existingIndex = this.videoProgress.findIndex(
+      (vp) => vp.videoId === videoId
+    );
+    
+    if (existingIndex >= 0) {
+      this.videoProgress[existingIndex] = {
+        ...this.videoProgress[existingIndex],
+        completed: false,
+        manuallyCompleted: false,
+        lastWatchedAt: new Date().toISOString(),
+      };
+      await this.saveData();
+      return this.videoProgress[existingIndex];
+    }
+    
+    return null;
   }
 
   getVideoProgress(videoId: number): VideoProgress | null {

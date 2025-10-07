@@ -1,15 +1,16 @@
 {
-  "name": "video-player",
-  "productName": "video-player",
+  "name": "nilaa-player",
+  "productName": "Nilaa Player",
   "version": "1.0.0",
-  "description": "My Electron application description",
+  "description": "A modern desktop video player for offline course management and progress tracking",
   "main": ".vite/build/main.js",
   "scripts": {
     "start": "electron-forge start",
     "package": "electron-forge package",
     "make": "electron-forge make",
     "publish": "electron-forge publish",
-    "lint": "eslint --ext .ts,.tsx ."
+    "lint": "eslint --ext .ts,.tsx .",
+    "generate-icons": "node scripts/generate-icons.js && node scripts/generate-ico.js && iconutil -c icns assets/icons/icon.iconset"
   },
   "keywords": [],
   "author": "sathish",
@@ -25,11 +26,14 @@
     "@electron-forge/plugin-vite": "^7.9.0",
     "@electron/fuses": "^1.8.0",
     "@types/electron-squirrel-startup": "^1.0.2",
+    "@types/sharp": "^0.31.1",
     "@typescript-eslint/eslint-plugin": "^5.62.0",
     "@typescript-eslint/parser": "^5.62.0",
     "electron": "38.1.2",
     "eslint": "^8.57.1",
     "eslint-plugin-import": "^2.32.0",
+    "sharp": "^0.34.4",
+    "to-ico": "^1.1.5",
     "typescript": "~4.5.4",
     "vite": "^5.4.20"
   },

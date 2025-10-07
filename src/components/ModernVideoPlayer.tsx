@@ -337,7 +337,7 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
     if (!selectedVideo) return;
 
     const progressPercentage = (currentTime / duration) * 100;
-    const isCompleted = progressPercentage >= 90; // Mark as completed at 90%
+    const isCompleted = progressPercentage >= 90; // Mark as completed at 90% (consistent with database)
 
     // Update local state immediately for instant UI feedback
     setCurrentVideoProgress({
@@ -358,6 +358,7 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
       progressPercentage,
       completed: isCompleted,
       lastWatchedAt: new Date().toISOString(),
+      manuallyCompleted: existingProgress?.manuallyCompleted || false,
     });
 
     setVideoProgress(updatedProgress);
@@ -376,6 +377,44 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
       } catch (error) {
         console.error("Error updating video progress:", error);
       }
+    }
+  };
+
+  // Mark video as completed manually
+  const handleMarkAsCompleted = async (
+    videoId: number,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+    try {
+      const updatedProgress =
+        await window.electronAPI.markVideoCompleted(videoId);
+      if (updatedProgress) {
+        const updatedProgressMap = new Map(videoProgress);
+        updatedProgressMap.set(videoId, updatedProgress);
+        setVideoProgress(updatedProgressMap);
+      }
+    } catch (error) {
+      console.error("Error marking video as completed:", error);
+    }
+  };
+
+  // Mark video as incomplete
+  const handleMarkAsIncomplete = async (
+    videoId: number,
+    e: React.MouseEvent
+  ) => {
+    e.stopPropagation();
+    try {
+      const updatedProgress =
+        await window.electronAPI.markVideoIncomplete(videoId);
+      if (updatedProgress) {
+        const updatedProgressMap = new Map(videoProgress);
+        updatedProgressMap.set(videoId, updatedProgress);
+        setVideoProgress(updatedProgressMap);
+      }
+    } catch (error) {
+      console.error("Error marking video as incomplete:", error);
     }
   };
 
@@ -404,6 +443,31 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
           </div>
 
           <div className="flex items-center space-x-3">
+            {/* Video Completion Control */}
+            {selectedVideo && (
+              <div className="flex items-center">
+                {getVideoProgress(selectedVideo.id)?.completed ? (
+                  <button
+                    onClick={(e) => handleMarkAsIncomplete(selectedVideo.id, e)}
+                    className="px-3 py-1.5 bg-green-500/20 hover:bg-green-500/30 border border-green-500/30 rounded-lg flex items-center space-x-2 text-green-400 hover:text-green-300 transition-all duration-200"
+                    title="Mark as Incomplete"
+                  >
+                    <span className="text-sm">✓</span>
+                    <span className="text-xs font-medium">Completed</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={(e) => handleMarkAsCompleted(selectedVideo.id, e)}
+                    className="px-3 py-1.5 bg-white/10 hover:bg-green-500/20 border border-white/20 hover:border-green-500/30 rounded-lg flex items-center space-x-2 text-white hover:text-green-300 transition-all duration-200"
+                    title="Mark as Complete"
+                  >
+                    <span className="text-sm">○</span>
+                    <span className="text-xs font-medium">Mark Complete</span>
+                  </button>
+                )}
+              </div>
+            )}
+
             <button
               onClick={(e) => {
                 e.stopPropagation();
@@ -709,23 +773,50 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
                           )}
                         </div>
 
-                        {/* Reset Button */}
-                        {progress &&
-                          (progress.currentTime > 0 || progress.completed) && (
+                        {/* Completion Controls */}
+                        <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-all duration-200">
+                          {/* Mark as Complete/Incomplete Button */}
+                          {progress?.completed ? (
                             <button
                               onClick={(e) =>
-                                handleResetVideoProgress(
-                                  video.id,
-                                  video.fileName,
-                                  e
-                                )
+                                handleMarkAsIncomplete(video.id, e)
                               }
-                              className="flex-shrink-0 w-6 h-6 bg-yellow-500/20 hover:bg-yellow-500/40 rounded-full flex items-center justify-center text-yellow-400 hover:text-yellow-300 transition-all duration-200 opacity-0 group-hover:opacity-100"
-                              title="Reset Progress"
+                              className="flex-shrink-0 w-6 h-6 bg-green-500/20 hover:bg-green-500/40 rounded-full flex items-center justify-center text-green-400 hover:text-green-300 transition-all duration-200"
+                              title="Mark as Incomplete"
                             >
-                              <span className="text-xs">↻</span>
+                              <span className="text-xs">✓</span>
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(e) =>
+                                handleMarkAsCompleted(video.id, e)
+                              }
+                              className="flex-shrink-0 w-6 h-6 bg-gray-500/20 hover:bg-green-500/40 rounded-full flex items-center justify-center text-gray-400 hover:text-green-300 transition-all duration-200"
+                              title="Mark as Complete"
+                            >
+                              <span className="text-xs">○</span>
                             </button>
                           )}
+
+                          {/* Reset Button */}
+                          {progress &&
+                            (progress.currentTime > 0 ||
+                              progress.completed) && (
+                              <button
+                                onClick={(e) =>
+                                  handleResetVideoProgress(
+                                    video.id,
+                                    video.fileName,
+                                    e
+                                  )
+                                }
+                                className="flex-shrink-0 w-6 h-6 bg-yellow-500/20 hover:bg-yellow-500/40 rounded-full flex items-center justify-center text-yellow-400 hover:text-yellow-300 transition-all duration-200"
+                                title="Reset Progress"
+                              >
+                                <span className="text-xs">↻</span>
+                              </button>
+                            )}
+                        </div>
                       </div>
                     </div>
                   );

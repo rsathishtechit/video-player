@@ -50,10 +50,18 @@ class VideoDatabase {
         progressPercentage REAL NOT NULL DEFAULT 0,
         lastWatchedAt DATETIME DEFAULT CURRENT_TIMESTAMP,
         completed BOOLEAN NOT NULL DEFAULT FALSE,
+        manuallyCompleted BOOLEAN NOT NULL DEFAULT FALSE,
         FOREIGN KEY (videoId) REFERENCES videos (id) ON DELETE CASCADE,
         UNIQUE(videoId)
       )
     `);
+    
+    // Add manuallyCompleted column if it doesn't exist (migration)
+    try {
+      this.db.exec(`ALTER TABLE video_progress ADD COLUMN manuallyCompleted BOOLEAN NOT NULL DEFAULT FALSE`);
+    } catch (error) {
+      // Column already exists, ignore error
+    }
 
     // Create indexes for better performance
     this.db.exec(`
@@ -119,9 +127,14 @@ class VideoDatabase {
     return this.getVideoById(result.lastInsertRowid as number);
   }
 
-  getVideoById(id: number): Video {
+  getVideoById(id: number): Video | null {
     const stmt = this.db.prepare('SELECT * FROM videos WHERE id = ?');
-    return stmt.get(id) as Video;
+    return stmt.get(id) as Video || null;
+  }
+
+  // Alias for consistency
+  getVideo(id: number): Video | null {
+    return this.getVideoById(id);
   }
 
   getVideosByCourseId(courseId: number): Video[] {
@@ -155,15 +168,61 @@ class VideoDatabase {
     duration: number, 
     progressPercentage: number
   ): VideoProgress {
-    const completed = progressPercentage >= 95; // Consider 95% as completed
+    // Get existing progress to preserve manual completion status
+    const existingProgress = this.getVideoProgress(videoId);
+    const wasManuallyCompleted = existingProgress?.manuallyCompleted || false;
+    
+    // Auto-complete at 90% (consistent with UI), but don't override manual completion
+    const autoCompleted = progressPercentage >= 90;
+    const completed = wasManuallyCompleted || autoCompleted;
     
     const stmt = this.db.prepare(`
       INSERT OR REPLACE INTO video_progress 
-      (videoId, currentTime, duration, progressPercentage, lastWatchedAt, completed)
-      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
+      (videoId, currentTime, duration, progressPercentage, lastWatchedAt, completed, manuallyCompleted)
+      VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?)
     `);
     
-    stmt.run(videoId, currentTime, duration, progressPercentage, completed);
+    stmt.run(videoId, currentTime, duration, progressPercentage, completed, wasManuallyCompleted);
+    
+    return this.getVideoProgress(videoId);
+  }
+
+  // Mark video as manually completed
+  markVideoAsCompleted(videoId: number): VideoProgress {
+    const existingProgress = this.getVideoProgress(videoId);
+    
+    if (existingProgress) {
+      // Update existing progress
+      const stmt = this.db.prepare(`
+        UPDATE video_progress 
+        SET completed = TRUE, manuallyCompleted = TRUE, lastWatchedAt = CURRENT_TIMESTAMP
+        WHERE videoId = ?
+      `);
+      stmt.run(videoId);
+    } else {
+      // Create new progress entry
+      const video = this.getVideo(videoId);
+      if (video) {
+        const stmt = this.db.prepare(`
+          INSERT INTO video_progress 
+          (videoId, currentTime, duration, progressPercentage, lastWatchedAt, completed, manuallyCompleted)
+          VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, TRUE, TRUE)
+        `);
+        stmt.run(videoId, video.duration, video.duration, 100);
+      }
+    }
+    
+    return this.getVideoProgress(videoId);
+  }
+
+  // Mark video as incomplete (reset completion)
+  markVideoAsIncomplete(videoId: number): VideoProgress {
+    const stmt = this.db.prepare(`
+      UPDATE video_progress 
+      SET completed = FALSE, manuallyCompleted = FALSE, lastWatchedAt = CURRENT_TIMESTAMP
+      WHERE videoId = ?
+    `);
+    stmt.run(videoId);
     
     return this.getVideoProgress(videoId);
   }

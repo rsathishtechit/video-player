@@ -36,10 +36,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           {/* Logo */}
           <div className="flex items-center px-6 py-8">
             <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-purple-600 rounded-xl flex items-center justify-center">
-              <span className="text-white font-bold text-lg">VP</span>
+              <span className="text-white font-bold text-lg">N</span>
             </div>
             <span className="ml-3 text-white font-semibold text-xl">
-              Video Player
+              Nilaa Player
             </span>
           </div>
 
@@ -67,7 +67,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           {/* Footer */}
           <div className="p-4 border-t border-white/10">
             <div className="text-xs text-gray-400 text-center">
-              Video Player v1.0
+              Nilaa Player v1.0
             </div>
           </div>
         </div>

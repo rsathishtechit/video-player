@@ -1,5 +1,5 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import { HashRouter as Router, Routes, Route } from "react-router-dom";
 import Layout from "./Layout";
 import DashboardPage from "../pages/DashboardPage";
 import CoursesPage from "../pages/CoursesPage";
@@ -30,7 +30,7 @@ const App: React.FC = () => {
             </Layout>
           }
         />
-        
+
         {/* Catch-all route for any unmatched paths */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
