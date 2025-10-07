@@ -1,5 +1,8 @@
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const pngToIco = require("png-to-ico").default || require("png-to-ico");
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const fs = require("fs").promises;
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const path = require("path");
 
 async function generateIcoAlt() {
