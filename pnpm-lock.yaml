@@ -54,6 +54,9 @@ importers:
       '@electron-forge/maker-rpm':
         specifier: ^7.9.0
         version: 7.9.0
+      '@electron-forge/maker-snap':
+        specifier: ^7.9.0
+        version: 7.9.0
       '@electron-forge/maker-squirrel':
         specifier: ^7.9.0
         version: 7.9.0
@@ -140,6 +143,10 @@ packages:
 
   '@electron-forge/maker-rpm@7.9.0':
     resolution: {integrity: sha512-if7Odo/LFn1MIGW6ftEnhP77+0pTeMd9e9YvM8+qiaztV/jVNB0RGuuzKOtQXzbrrjps/YWG15x+U4/XUIUylg==}
+    engines: {node: '>= 16.4.0'}
+
+  '@electron-forge/maker-snap@7.9.0':
+    resolution: {integrity: sha512-qjGFR8AG2lFz5IZUGttPyffCuY8CkDZtUcUNAWROg98mhQoA9HB/sU4g7gWbvpQ/fvRJ7yywPgyfUKmcXw/G2A==}
     engines: {node: '>= 16.4.0'}
 
   '@electron-forge/maker-squirrel@7.9.0':
@@ -1166,6 +1173,9 @@ packages:
     resolution: {integrity: sha512-4Dj6M28JB+oAH8kFkTLUo+a2jwOFkuqb3yucU0CANcRRUbxS0cP0nZYCGjcc3BNXwRIsUVmDGgzawme7zvJHvg==}
     engines: {node: '>=12'}
 
+  argparse@1.0.10:
+    resolution: {integrity: sha512-o5Roy6tNG4SL/FOkCAN6RzjiakZS25RLYFrcMttJqbdd8BWrnA+fGz57iN5Pb06pvBGvl5gQ0B48dJlslXvoTg==}
+
   argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
 
@@ -1634,6 +1644,11 @@ packages:
     os: [darwin, linux]
     hasBin: true
 
+  electron-installer-snap@5.2.0:
+    resolution: {integrity: sha512-SRm7pCpNHMXV545JjScV8fLC9NhFli5r8L8Ju4EHdXwRh76+mwrJoUEDLItixBudZ5Mcgz1SJcDPJfWpEQWX7Q==}
+    engines: {node: '>= 10.0'}
+    hasBin: true
+
   electron-squirrel-startup@1.0.1:
     resolution: {integrity: sha512-sTfFIHGku+7PsHLJ7v0dRcZNkALrV+YEozINTW8X1nM//e5O3L+rfYuvSW00lmGHnYmUjARZulD8F2V8ISI9RA==}
 
@@ -1781,6 +1796,11 @@ packages:
   espree@9.6.1:
     resolution: {integrity: sha512-oruZaFkjorTpF32kDSI5/75ViwGeZginGGy2NoOSg3Q9bnwlnmDm4HLnkl0RE3n+njDXR037aY1+x58Z/zFdwQ==}
     engines: {node: ^12.22.0 || ^14.17.0 || >=16.0.0}
+
+  esprima@4.0.1:
+    resolution: {integrity: sha512-eGuFFw7Upda+g4p+QHvnW0RyTX/SVeJBDM/gCtMARO0cLuT2HcEKnTPvhjV6aGeqrCB/sbNop0Kszm0jsaWU4A==}
+    engines: {node: '>=4'}
+    hasBin: true
 
   esquery@1.6.0:
     resolution: {integrity: sha512-ca9pw9fomFcKPvFLXhBKUK90ZvGibiGOvRJNbjljY7s7uq/5YO4BOzcYtJqExdx99rF6aAcnRxHmcUHcz6sQsg==}
@@ -2386,6 +2406,10 @@ packages:
 
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
+
+  js-yaml@3.14.1:
+    resolution: {integrity: sha512-okMH7OXXJ7YrN9Ok3/SXrnu4iX9yOk+25nqX4imS2npuvTYDmo/QEZoqwZkYaIDk3jVvBOTOIEgEhaLOynBS9g==}
+    hasBin: true
 
   js-yaml@4.1.0:
     resolution: {integrity: sha512-wpxZs9NoxZaJESJGIZTyDEaYpl0FKSA+FB9aJiyemKhMwkxQg63h4T1KJgUGHpTqPDNRcmmYLugrRjJlBtWvRA==}
@@ -3368,6 +3392,9 @@ packages:
   spotify-audio-element@1.0.3:
     resolution: {integrity: sha512-I1/qD8cg/UnTlCIMiKSdZUJTyYfYhaqFK7LIVElc48eOqUUbVCaw1bqL8I6mJzdMJTh3eoNyF/ewvB7NoS/g9A==}
 
+  sprintf-js@1.0.3:
+    resolution: {integrity: sha512-D9cPgkvLlV3t3IzL0D0YLvGA9Ahk4PcvVwUbN0dSGr1aP0Nrt4AEnTUbuGvquEC0mA64Gqt1fzirlRs5ibXx8g==}
+
   sprintf-js@1.1.3:
     resolution: {integrity: sha512-Oo+0REFV59/rz3gfJNKQiBlwfHaSESl1pcGyABQsnnIfWOFt6JNj5gCog2U6MLZ//IGYD+nA8nI+mTShREReaA==}
 
@@ -3916,6 +3943,16 @@ snapshots:
       '@electron-forge/shared-types': 7.9.0
     optionalDependencies:
       electron-installer-redhat: 3.4.0
+    transitivePeerDependencies:
+      - bluebird
+      - supports-color
+
+  '@electron-forge/maker-snap@7.9.0':
+    dependencies:
+      '@electron-forge/maker-base': 7.9.0
+      '@electron-forge/shared-types': 7.9.0
+    optionalDependencies:
+      electron-installer-snap: 5.2.0
     transitivePeerDependencies:
       - bluebird
       - supports-color
@@ -5048,6 +5085,11 @@ snapshots:
 
   ansi-styles@6.2.3: {}
 
+  argparse@1.0.10:
+    dependencies:
+      sprintf-js: 1.0.3
+    optional: true
+
   argparse@2.0.1: {}
 
   array-buffer-byte-length@1.0.2:
@@ -5571,6 +5613,22 @@ snapshots:
       - supports-color
     optional: true
 
+  electron-installer-snap@5.2.0:
+    dependencies:
+      '@malept/cross-spawn-promise': 1.1.1
+      debug: 4.4.3
+      electron-installer-common: 0.10.4
+      fs-extra: 9.1.0
+      js-yaml: 3.14.1
+      lodash: 4.17.21
+      semver: 7.7.2
+      tmp-promise: 3.0.3
+      which: 2.0.2
+      yargs: 16.2.0
+    transitivePeerDependencies:
+      - supports-color
+    optional: true
+
   electron-squirrel-startup@1.0.1:
     dependencies:
       debug: 2.6.9
@@ -5852,6 +5910,9 @@ snapshots:
       acorn: 8.15.0
       acorn-jsx: 5.3.2(acorn@8.15.0)
       eslint-visitor-keys: 3.4.3
+
+  esprima@4.0.1:
+    optional: true
 
   esquery@1.6.0:
     dependencies:
@@ -6499,6 +6560,12 @@ snapshots:
   jpeg-js@0.2.0: {}
 
   js-tokens@4.0.0: {}
+
+  js-yaml@3.14.1:
+    dependencies:
+      argparse: 1.0.10
+      esprima: 4.0.1
+    optional: true
 
   js-yaml@4.1.0:
     dependencies:
@@ -7559,6 +7626,9 @@ snapshots:
   spdx-license-ids@3.0.22: {}
 
   spotify-audio-element@1.0.3: {}
+
+  sprintf-js@1.0.3:
+    optional: true
 
   sprintf-js@1.1.3:
     optional: true
