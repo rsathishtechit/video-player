@@ -20,6 +20,10 @@ import { createReadStream, statSync, existsSync } from "fs";
 import started from "electron-squirrel-startup";
 import JsonDatabase from "./database/jsonDatabase";
 import { Course } from "./database/schema";
+import {
+  SubtitleService,
+  SubtitleGenerationProgress,
+} from "./utils/subtitleService";
 
 // Interface for video file information
 interface VideoFileInfo {
@@ -41,8 +45,9 @@ if (started) {
   app.quit();
 }
 
-// Initialize database and HTTP server
+// Initialize database, subtitle service and HTTP server
 let db: JsonDatabase;
+let subtitleService: SubtitleService;
 let videoServer: Server;
 const VIDEO_SERVER_PORT = 3000;
 
@@ -823,6 +828,151 @@ const setupIpcHandlers = () => {
       };
     }
   });
+
+  // Subtitle generation handlers
+  ipcMain.handle(
+    "generate-subtitles",
+    async (
+      event,
+      videoId: number,
+      options?: { model?: string; language?: string }
+    ) => {
+      try {
+        if (!db || !subtitleService) {
+          throw new Error("Services not initialized");
+        }
+
+        const video = db.getVideoById(videoId);
+        if (!video) {
+          throw new Error(`Video with id ${videoId} not found`);
+        }
+
+        console.log(`Starting subtitle generation for video ${videoId}`);
+
+        // Generate subtitles with progress updates
+        const subtitlePath = await subtitleService.generateSubtitles(
+          videoId,
+          video.filePath,
+          {
+            model: (options?.model || "base") as
+              | "tiny"
+              | "base"
+              | "small"
+              | "medium"
+              | "large",
+            language: options?.language,
+          },
+          (progress: SubtitleGenerationProgress) => {
+            // Send progress updates to renderer
+            event.sender.send("subtitle-generation-progress", progress);
+          }
+        );
+
+        // Update database with subtitle path
+        await db.updateVideoSubtitle(videoId, subtitlePath, options?.language);
+
+        console.log(
+          `Subtitle generation completed for video ${videoId}: ${subtitlePath}`
+        );
+
+        return { success: true, subtitlePath };
+      } catch (error) {
+        console.error("Error generating subtitles:", error);
+        const errorMessage =
+          error instanceof Error ? error.message : "Unknown error";
+        return { success: false, error: errorMessage };
+      }
+    }
+  );
+
+  ipcMain.handle("has-subtitles", async (event, videoId: number) => {
+    try {
+      if (!subtitleService) {
+        return false;
+      }
+      return await subtitleService.hasSubtitles(videoId);
+    } catch (error) {
+      console.error("Error checking subtitles:", error);
+      return false;
+    }
+  });
+
+  ipcMain.handle("get-subtitle-path", async (event, videoId: number) => {
+    try {
+      if (!subtitleService) {
+        return null;
+      }
+      return await subtitleService.getSubtitlePath(videoId);
+    } catch (error) {
+      console.error("Error getting subtitle path:", error);
+      return null;
+    }
+  });
+
+  ipcMain.handle("delete-subtitles", async (event, videoId: number) => {
+    try {
+      if (!db || !subtitleService) {
+        return;
+      }
+      await subtitleService.deleteSubtitles(videoId);
+      await db.removeVideoSubtitle(videoId);
+      console.log(`Deleted subtitles for video ${videoId}`);
+    } catch (error) {
+      console.error("Error deleting subtitles:", error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle("get-available-whisper-models", async () => {
+    try {
+      if (!subtitleService) {
+        return [];
+      }
+      return subtitleService.getAvailableModels();
+    } catch (error) {
+      console.error("Error getting available models:", error);
+      return [];
+    }
+  });
+
+  ipcMain.handle("get-whisper-model-info", async (event, modelName: string) => {
+    try {
+      if (!subtitleService) {
+        return null;
+      }
+      return subtitleService.getModelInfo(modelName);
+    } catch (error) {
+      console.error("Error getting model info:", error);
+      return null;
+    }
+  });
+
+  ipcMain.handle("check-whisper-availability", async () => {
+    try {
+      if (!subtitleService) {
+        return false;
+      }
+      return await subtitleService.checkWhisperAvailability();
+    } catch (error) {
+      console.error("Error checking whisper availability:", error);
+      return false;
+    }
+  });
+
+  ipcMain.handle("download-whisper-model", async (event, modelName: string) => {
+    try {
+      if (!subtitleService) {
+        throw new Error("Subtitle service not initialized");
+      }
+      const modelPath = await subtitleService.downloadModel(modelName);
+      return { success: true, modelPath };
+    } catch (error) {
+      console.error("Error downloading model:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      return { success: false, error: errorMessage };
+    }
+  });
 };
 
 // Initialize IPC handlers
@@ -835,6 +985,16 @@ app.whenReady().then(async () => {
   } catch (error) {
     console.error("Failed to initialize database:", error);
     // Continue without database for now
+  }
+
+  // Initialize subtitle service
+  try {
+    const userDataPath = app.getPath("userData");
+    subtitleService = new SubtitleService(userDataPath);
+    await subtitleService.initialize();
+    console.log("Subtitle service initialized");
+  } catch (error) {
+    console.error("Failed to initialize subtitle service:", error);
   }
 
   // Start video server

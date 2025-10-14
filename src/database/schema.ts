@@ -22,6 +22,9 @@ export interface Video {
   codec?: string;
   bitrate?: number;
   frameRate?: number;
+  subtitlePath?: string; // Path to generated subtitle file
+  hasSubtitles?: boolean; // Whether subtitles are generated
+  subtitleLanguage?: string; // Language of subtitles
 }
 
 export interface VideoProgress {

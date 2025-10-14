@@ -31,13 +31,54 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
     systemIdleTime: number;
     thermalState: string;
   } | null>(null);
+  const [subtitleProgress, setSubtitleProgress] = useState<{
+    status: string;
+    progress: number;
+    message: string;
+  } | null>(null);
+  const [showSubtitleModal, setShowSubtitleModal] = useState(false);
+  const [selectedModel, setSelectedModel] = useState("base");
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [whisperAvailable, setWhisperAvailable] = useState(false);
+  const [subtitlePath, setSubtitlePath] = useState<string | null>(null);
   const videoContainerRef = React.useRef<HTMLDivElement>(null);
+  const videoElementRef = React.useRef<HTMLVideoElement>(null);
   const timeUpdateThrottleRef = React.useRef(0);
 
   useEffect(() => {
     loadVideoProgress();
     loadPowerInfo();
+    checkWhisperAvailability();
+    loadAvailableModels();
   }, [course.id]);
+
+  useEffect(() => {
+    if (selectedVideo) {
+      loadSubtitlePath();
+    }
+  }, [selectedVideo]);
+
+  useEffect(() => {
+    // Listen for subtitle generation progress
+    const cleanup = window.electronAPI.onSubtitleGenerationProgress(
+      (progress) => {
+        if (progress.videoId === selectedVideo?.id) {
+          setSubtitleProgress(progress);
+
+          if (progress.status === "completed") {
+            // Reload subtitle path
+            loadSubtitlePath();
+            // Clear progress after 2 seconds
+            setTimeout(() => {
+              setSubtitleProgress(null);
+            }, 2000);
+          }
+        }
+      }
+    );
+
+    return cleanup;
+  }, [selectedVideo]);
 
   // Load power information for battery optimization
   const loadPowerInfo = async () => {
@@ -46,6 +87,95 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
       setPowerInfo(info);
     } catch (error) {
       console.error("Error loading power info:", error);
+    }
+  };
+
+  // Check if whisper.cpp is available
+  const checkWhisperAvailability = async () => {
+    try {
+      const available = await window.electronAPI.checkWhisperAvailability();
+      setWhisperAvailable(available);
+    } catch (error) {
+      console.error("Error checking whisper availability:", error);
+    }
+  };
+
+  // Load available whisper models
+  const loadAvailableModels = async () => {
+    try {
+      const models = await window.electronAPI.getAvailableWhisperModels();
+      setAvailableModels(models);
+    } catch (error) {
+      console.error("Error loading available models:", error);
+    }
+  };
+
+  // Load subtitle path for current video
+  const loadSubtitlePath = async () => {
+    if (!selectedVideo) return;
+    try {
+      const path = await window.electronAPI.getSubtitlePath(selectedVideo.id);
+      setSubtitlePath(path);
+    } catch (error) {
+      console.error("Error loading subtitle path:", error);
+    }
+  };
+
+  // Generate subtitles
+  const handleGenerateSubtitles = async () => {
+    if (!selectedVideo) return;
+
+    setShowSubtitleModal(false);
+    setSubtitleProgress({
+      status: "extracting",
+      progress: 0,
+      message: "Starting subtitle generation...",
+    });
+
+    try {
+      const result = await window.electronAPI.generateSubtitles(
+        selectedVideo.id,
+        {
+          model: selectedModel,
+          language: "auto",
+        }
+      );
+
+      if (result.success) {
+        console.log("Subtitles generated successfully");
+      } else {
+        alert(`Failed to generate subtitles: ${result.error}`);
+        setSubtitleProgress(null);
+      }
+    } catch (error) {
+      console.error("Error generating subtitles:", error);
+      alert("Failed to generate subtitles. Please try again.");
+      setSubtitleProgress(null);
+    }
+  };
+
+  // Delete subtitles
+  const handleDeleteSubtitles = async () => {
+    if (!selectedVideo) return;
+
+    if (
+      window.confirm(
+        `Are you sure you want to delete subtitles for "${selectedVideo.fileName}"?`
+      )
+    ) {
+      try {
+        await window.electronAPI.deleteSubtitles(selectedVideo.id);
+        setSubtitlePath(null);
+        // Reload video to remove subtitle track
+        if (videoElementRef.current) {
+          const currentTime = videoElementRef.current.currentTime;
+          videoElementRef.current.load();
+          videoElementRef.current.currentTime = currentTime;
+        }
+      } catch (error) {
+        console.error("Error deleting subtitles:", error);
+        alert("Failed to delete subtitles.");
+      }
     }
   };
 
@@ -443,6 +573,47 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
           </div>
 
           <div className="flex items-center space-x-3">
+            {/* Subtitle Controls */}
+            {selectedVideo && (
+              <div className="flex items-center space-x-2">
+                {subtitlePath ? (
+                  <>
+                    <span className="px-3 py-1.5 bg-blue-500/20 border border-blue-500/30 rounded-lg flex items-center space-x-2 text-blue-400 text-xs font-medium">
+                      <span>📝</span>
+                      <span>Subtitles</span>
+                    </span>
+                    <button
+                      onClick={handleDeleteSubtitles}
+                      className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 rounded-lg flex items-center space-x-2 text-red-400 hover:text-red-300 transition-all duration-200"
+                      title="Delete Subtitles"
+                    >
+                      <span className="text-sm">🗑️</span>
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    onClick={() => setShowSubtitleModal(true)}
+                    disabled={!whisperAvailable || !!subtitleProgress}
+                    className={`px-3 py-1.5 rounded-lg flex items-center space-x-2 transition-all duration-200 ${
+                      whisperAvailable && !subtitleProgress
+                        ? "bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/30 text-purple-400 hover:text-purple-300"
+                        : "bg-gray-500/20 border border-gray-500/30 text-gray-500 cursor-not-allowed"
+                    }`}
+                    title={
+                      !whisperAvailable
+                        ? "Whisper.cpp not installed"
+                        : "Generate Subtitles"
+                    }
+                  >
+                    <span className="text-sm">📝</span>
+                    <span className="text-xs font-medium">
+                      Generate Subtitles
+                    </span>
+                  </button>
+                )}
+              </div>
+            )}
+
             {/* Video Completion Control */}
             {selectedVideo && (
               <div className="flex items-center">
@@ -513,7 +684,9 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
               >
                 <video
                   key={selectedVideo.id}
+                  ref={videoElementRef}
                   controls
+                  crossOrigin="anonymous"
                   className="w-full h-full object-contain"
                   onLoadedMetadata={async (e) => {
                     if (!selectedVideo) return;
@@ -631,6 +804,15 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
                     src={`http://localhost:3000/${encodeURIComponent(selectedVideo.filePath)}`}
                     type="video/mp4"
                   />
+                  {subtitlePath && (
+                    <track
+                      kind="subtitles"
+                      label="English"
+                      srcLang="en"
+                      src={`file://${subtitlePath}`}
+                      default
+                    />
+                  )}
                 </video>
 
                 {/* Fullscreen Button Overlay */}
@@ -826,6 +1008,130 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Subtitle Generation Progress */}
+      {subtitleProgress && (
+        <div className="fixed bottom-8 right-8 bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-xl p-6 shadow-2xl w-96 z-50">
+          <div className="flex items-start space-x-4">
+            <div className="flex-shrink-0">
+              {subtitleProgress.status === "completed" ? (
+                <span className="text-4xl">✅</span>
+              ) : subtitleProgress.status === "error" ? (
+                <span className="text-4xl">❌</span>
+              ) : (
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
+              )}
+            </div>
+            <div className="flex-1">
+              <h3 className="text-white font-semibold mb-2">
+                {subtitleProgress.status === "completed"
+                  ? "Subtitles Generated!"
+                  : subtitleProgress.status === "error"
+                    ? "Generation Failed"
+                    : "Generating Subtitles"}
+              </h3>
+              <p className="text-gray-400 text-sm mb-3">
+                {subtitleProgress.message}
+              </p>
+              {subtitleProgress.status !== "completed" &&
+                subtitleProgress.status !== "error" && (
+                  <div className="w-full bg-gray-700 rounded-full h-2">
+                    <div
+                      className="bg-gradient-to-r from-purple-400 to-blue-600 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${subtitleProgress.progress}%` }}
+                    ></div>
+                  </div>
+                )}
+            </div>
+            <button
+              onClick={() => setSubtitleProgress(null)}
+              className="flex-shrink-0 w-6 h-6 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-white text-xs transition-all"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Subtitle Model Selection Modal */}
+      {showSubtitleModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-slate-900/95 backdrop-blur-xl border border-white/10 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl">
+            <h2 className="text-2xl font-bold text-white mb-4">
+              Generate Subtitles
+            </h2>
+            <p className="text-gray-400 mb-6">
+              Choose a Whisper model to generate subtitles. Larger models are
+              more accurate but slower.
+            </p>
+
+            <div className="space-y-3 mb-6">
+              {availableModels.map((model) => (
+                <button
+                  key={model}
+                  onClick={() => setSelectedModel(model)}
+                  className={`w-full p-4 rounded-lg border text-left transition-all duration-200 ${
+                    selectedModel === model
+                      ? "bg-purple-500/20 border-purple-500/50 text-purple-300"
+                      : "bg-white/5 border-white/10 text-gray-300 hover:bg-white/10"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="font-semibold capitalize">{model}</div>
+                      <div className="text-sm text-gray-500">
+                        {model === "tiny" && "75 MB - Fastest, lowest accuracy"}
+                        {model === "base" &&
+                          "142 MB - Fast, good for most use cases"}
+                        {model === "small" &&
+                          "466 MB - Better accuracy, slower"}
+                        {model === "medium" && "1.5 GB - High accuracy, slow"}
+                        {model === "large" &&
+                          "2.9 GB - Best accuracy, very slow"}
+                      </div>
+                    </div>
+                    {selectedModel === model && (
+                      <span className="text-purple-400">✓</span>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowSubtitleModal(false)}
+                className="flex-1 px-4 py-3 bg-white/10 hover:bg-white/20 rounded-lg text-white transition-all duration-200"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleGenerateSubtitles}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-purple-500 to-blue-600 hover:from-purple-600 hover:to-blue-700 rounded-lg text-white font-semibold transition-all duration-200"
+              >
+                Generate
+              </button>
+            </div>
+
+            {!whisperAvailable && (
+              <div className="mt-4 p-4 bg-yellow-500/20 border border-yellow-500/30 rounded-lg">
+                <p className="text-yellow-400 text-sm">
+                  ⚠️ Whisper.cpp is not installed. Please install it from{" "}
+                  <a
+                    href="https://github.com/ggerganov/whisper.cpp"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline"
+                  >
+                    here
+                  </a>
+                  .
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

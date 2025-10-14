@@ -70,6 +70,28 @@ export interface ElectronAPI {
     systemIdleTime: number;
     thermalState: string;
   }>;
+
+  // Subtitle operations
+  generateSubtitles: (
+    videoId: number,
+    options?: { model?: string; language?: string }
+  ) => Promise<{ success: boolean; subtitlePath?: string; error?: string }>;
+  hasSubtitles: (videoId: number) => Promise<boolean>;
+  getSubtitlePath: (videoId: number) => Promise<string | null>;
+  deleteSubtitles: (videoId: number) => Promise<void>;
+  getAvailableWhisperModels: () => Promise<string[]>;
+  getWhisperModelInfo: (modelName: string) => Promise<{
+    name: string;
+    size: string;
+    description: string;
+  } | null>;
+  checkWhisperAvailability: () => Promise<boolean>;
+  downloadWhisperModel: (
+    modelName: string
+  ) => Promise<{ success: boolean; modelPath?: string; error?: string }>;
+  onSubtitleGenerationProgress: (
+    callback: (progress: any) => void
+  ) => () => void;
 }
 
 // Expose the API to the renderer process
@@ -137,6 +159,32 @@ contextBridge.exposeInMainWorld("electronAPI", {
   videoPlaying: (playing: boolean) =>
     ipcRenderer.invoke("video-playing", playing),
   getPowerInfo: () => ipcRenderer.invoke("get-power-info"),
+
+  // Subtitle operations
+  generateSubtitles: (
+    videoId: number,
+    options?: { model?: string; language?: string }
+  ) => ipcRenderer.invoke("generate-subtitles", videoId, options),
+  hasSubtitles: (videoId: number) =>
+    ipcRenderer.invoke("has-subtitles", videoId),
+  getSubtitlePath: (videoId: number) =>
+    ipcRenderer.invoke("get-subtitle-path", videoId),
+  deleteSubtitles: (videoId: number) =>
+    ipcRenderer.invoke("delete-subtitles", videoId),
+  getAvailableWhisperModels: () =>
+    ipcRenderer.invoke("get-available-whisper-models"),
+  getWhisperModelInfo: (modelName: string) =>
+    ipcRenderer.invoke("get-whisper-model-info", modelName),
+  checkWhisperAvailability: () =>
+    ipcRenderer.invoke("check-whisper-availability"),
+  downloadWhisperModel: (modelName: string) =>
+    ipcRenderer.invoke("download-whisper-model", modelName),
+  onSubtitleGenerationProgress: (callback: (progress: any) => void) => {
+    const listener = (_event: any, progress: any) => callback(progress);
+    ipcRenderer.on("subtitle-generation-progress", listener);
+    return () =>
+      ipcRenderer.removeListener("subtitle-generation-progress", listener);
+  },
 } as ElectronAPI);
 
 // Type declaration for the global window object

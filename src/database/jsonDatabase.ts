@@ -241,6 +241,37 @@ class JsonDatabase {
     await this.saveData();
   }
 
+  // Subtitle operations
+  async updateVideoSubtitle(
+    videoId: number,
+    subtitlePath: string,
+    language?: string
+  ): Promise<Video> {
+    const video = this.videos.find((v) => v.id === videoId);
+    if (!video) {
+      throw new Error(`Video with id ${videoId} not found`);
+    }
+    video.subtitlePath = subtitlePath;
+    video.hasSubtitles = true;
+    video.subtitleLanguage = language || "auto";
+    video.updatedAt = new Date().toISOString();
+    await this.saveData();
+    return video;
+  }
+
+  async removeVideoSubtitle(videoId: number): Promise<Video> {
+    const video = this.videos.find((v) => v.id === videoId);
+    if (!video) {
+      throw new Error(`Video with id ${videoId} not found`);
+    }
+    video.subtitlePath = undefined;
+    video.hasSubtitles = false;
+    video.subtitleLanguage = undefined;
+    video.updatedAt = new Date().toISOString();
+    await this.saveData();
+    return video;
+  }
+
   // Progress operations
   async updateVideoProgress(
     videoId: number,
