@@ -12,6 +12,7 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-latest
@@ -97,19 +98,11 @@ jobs:
         env:
           NODE_ENV: production
 
-      - name: List build outputs (Debug)
-        run: |
-          echo "Contents of out directory:"
-          find out -type f -name "*.zip" -o -name "*.deb" -o -name "*.rpm" -o -name "*.snap" -o -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" 2>/dev/null || echo "No build artifacts found"
-        shell: bash
-
       - name: Prepare artifacts (macOS)
         if: matrix.platform == 'darwin'
         run: |
           mkdir -p artifacts
-          # Find and copy ZIP files for macOS
           find out -name "*.zip" -exec cp {} artifacts/ \;
-          # Rename to include architecture
           cd artifacts
           for file in *.zip; do
             if [ -f "$file" ]; then
@@ -122,9 +115,7 @@ jobs:
         if: matrix.platform == 'win32'
         run: |
           mkdir -p artifacts
-          # Find and copy Windows installer
           find out -name "*.exe" -exec cp {} artifacts/ \;
-          # Rename to include architecture
           cd artifacts
           for file in *.exe; do
             if [ -f "$file" ]; then
@@ -137,26 +128,18 @@ jobs:
         if: matrix.platform == 'linux'
         run: |
           mkdir -p artifacts
-          # Find and copy DEB, RPM, and Snap packages
           find out -name "*.deb" -exec cp {} artifacts/ \;
           find out -name "*.rpm" -exec cp {} artifacts/ \;
           find out -name "*.snap" -exec cp {} artifacts/ \;
-          # Rename files to include architecture
           cd artifacts
           for file in *.deb; do
-            if [ -f "$file" ]; then
-              mv "$file" "${{ matrix.artifact_name }}.deb"
-            fi
+            [ -f "$file" ] && mv "$file" "${{ matrix.artifact_name }}.deb"
           done
           for file in *.rpm; do
-            if [ -f "$file" ]; then
-              mv "$file" "${{ matrix.artifact_name }}.rpm"
-            fi
+            [ -f "$file" ] && mv "$file" "${{ matrix.artifact_name }}.rpm"
           done
           for file in *.snap; do
-            if [ -f "$file" ]; then
-              mv "$file" "${{ matrix.artifact_name }}.snap"
-            fi
+            [ -f "$file" ] && mv "$file" "${{ matrix.artifact_name }}.snap"
           done
         shell: bash
 
@@ -164,8 +147,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact_name }}
-          path: artifacts/
+          path: artifacts/*
           retention-days: 30
+          if-no-files-found: error
 
   release:
     needs: build
@@ -184,110 +168,70 @@ jobs:
         with:
           path: ./release-artifacts
 
-      - name: Display structure of downloaded files
-        run: ls -la ./release-artifacts/
+      - name: Flatten artifacts directory
+        run: |
+          mkdir -p ./dist
+          find ./release-artifacts -type f \( -name "*.zip" -o -name "*.exe" -o -name "*.deb" -o -name "*.rpm" -o -name "*.snap" \) -exec cp {} ./dist/ \;
+          ls -lh ./dist/
 
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_name }}
-          release_name: Nilaa Player ${{ github.ref_name }}
-          body: |
-            ## Nilaa Player ${{ github.ref_name }}
-
-            ### Downloads
-
-            **macOS:**
-            - Intel (x64): nilaa-player-darwin-x64.zip
-            - Apple Silicon (arm64): nilaa-player-darwin-arm64.zip
-
-            **Windows:**
-            - 64-bit: nilaa-player-win32-x64.exe
-
-            **Linux:**
-            - Debian/Ubuntu: nilaa-player-linux-x64.deb
-            - Red Hat/Fedora: nilaa-player-linux-x64.rpm
-            - Snap (Universal): nilaa-player-linux-x64.snap
-
-            ### Installation Instructions
-
-            **macOS:** Download the appropriate ZIP file for your Mac, extract it. If you get a "damaged" error, run this command in Terminal:
-            ```
-            xattr -cr /path/to/Nilaa\ Player.app
-            ```
-            Then right-click the app and select "Open" to bypass Gatekeeper.
-
-            **Windows:** Download the .exe file and run it to install the application.
-
-            **Linux:** 
-            - For Debian/Ubuntu: `sudo dpkg -i nilaa-player-linux-x64.deb`
-            - For Red Hat/Fedora: `sudo rpm -i nilaa-player-linux-x64.rpm`
-            - For Snap (any distro): `sudo snap install nilaa-player-linux-x64.snap --dangerous`
-
-            ### Changes
-            See the commit history for detailed changes in this release.
+          name: Nilaa Player ${{ github.ref_name }}
           draft: false
           prerelease: false
+          generate_release_notes: true
+          files: ./dist/*
+          body: |
+            ## 🎬 Nilaa Player ${{ github.ref_name }}
 
-      - name: Upload macOS Intel Release Asset
-        uses: actions/upload-release-asset@v1
+            A modern desktop video player for offline course management and progress tracking.
+
+            ### 📦 Downloads
+
+            **macOS:**
+            - 🍎 Intel (x64): `nilaa-player-darwin-x64.zip`
+            - 🍎 Apple Silicon (ARM64): `nilaa-player-darwin-arm64.zip`
+
+            **Windows:**
+            - 🪟 64-bit: `nilaa-player-win32-x64.exe`
+
+            **Linux:**
+            - 🐧 Debian/Ubuntu: `nilaa-player-linux-x64.deb`
+            - 🐧 Red Hat/Fedora: `nilaa-player-linux-x64.rpm`
+            - 🐧 Snap (Universal): `nilaa-player-linux-x64.snap`
+
+            ### 📖 Installation Instructions
+
+            **macOS:**
+            1. Download the appropriate ZIP file for your Mac
+            2. Extract the ZIP file
+            3. If you get a "damaged" warning, run in Terminal:
+               ```bash
+               xattr -cr /path/to/Nilaa\ Player.app
+               ```
+            4. Right-click the app and select "Open" to bypass Gatekeeper
+
+            **Windows:**
+            1. Download the `.exe` installer
+            2. Run the installer
+            3. Follow the installation wizard
+
+            **Linux:**
+            - **Debian/Ubuntu:**
+              ```bash
+              sudo dpkg -i nilaa-player-linux-x64.deb
+              ```
+            - **Red Hat/Fedora:**
+              ```bash
+              sudo rpm -i nilaa-player-linux-x64.rpm
+              ```
+            - **Snap (any distro):**
+              ```bash
+              sudo snap install nilaa-player-linux-x64.snap --dangerous
+              ```
+
+            ### 🔍 What's Changed
+            See the automatically generated release notes below for detailed changes.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release-artifacts/nilaa-player-darwin-x64/nilaa-player-darwin-x64.zip
-          asset_name: nilaa-player-darwin-x64.zip
-          asset_content_type: application/zip
-
-      - name: Upload macOS Apple Silicon Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release-artifacts/nilaa-player-darwin-arm64/nilaa-player-darwin-arm64.zip
-          asset_name: nilaa-player-darwin-arm64.zip
-          asset_content_type: application/zip
-
-      - name: Upload Windows Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release-artifacts/nilaa-player-win32-x64/nilaa-player-win32-x64.exe
-          asset_name: nilaa-player-win32-x64.exe
-          asset_content_type: application/octet-stream
-
-      - name: Upload Linux DEB Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release-artifacts/nilaa-player-linux-x64/nilaa-player-linux-x64.deb
-          asset_name: nilaa-player-linux-x64.deb
-          asset_content_type: application/vnd.debian.binary-package
-
-      - name: Upload Linux RPM Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release-artifacts/nilaa-player-linux-x64/nilaa-player-linux-x64.rpm
-          asset_name: nilaa-player-linux-x64.rpm
-          asset_content_type: application/x-rpm
-
-      - name: Upload Linux Snap Release Asset
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./release-artifacts/nilaa-player-linux-x64/nilaa-player-linux-x64.snap
-          asset_name: nilaa-player-linux-x64.snap
-          asset_content_type: application/vnd.snap
