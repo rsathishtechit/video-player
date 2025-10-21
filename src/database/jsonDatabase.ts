@@ -153,11 +153,22 @@ class JsonDatabase {
   }
 
   async deleteCourse(id: number): Promise<void> {
+    // Get video IDs for this course before filtering
+    const videoIdsToDelete = this.videos
+      .filter((v) => v.courseId === id)
+      .map((v) => v.id);
+
+    // Remove the course
     this.courses = this.courses.filter((c) => c.id !== id);
+
+    // Remove videos for this course
     this.videos = this.videos.filter((v) => v.courseId !== id);
+
+    // Remove progress only for videos that were in the deleted course
     this.videoProgress = this.videoProgress.filter(
-      (vp) => !this.videos.some((v) => v.id === vp.videoId)
+      (vp) => !videoIdsToDelete.includes(vp.videoId)
     );
+
     await this.saveData();
   }
 
