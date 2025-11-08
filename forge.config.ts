@@ -1,9 +1,6 @@
 import type { ForgeConfig } from "@electron-forge/shared-types";
-import { MakerSquirrel } from "@electron-forge/maker-squirrel";
-import { MakerDMG } from "@electron-forge/maker-dmg";
-import { MakerDeb } from "@electron-forge/maker-deb";
-import { MakerRpm } from "@electron-forge/maker-rpm";
-import { MakerSnap } from "@electron-forge/maker-snap";
+// Use object-style maker entries (by package name) rather than class instances.
+// This keeps the config simple and lets Electron Forge resolve makers by name.
 import { PublisherGithub } from "@electron-forge/publisher-github";
 import { VitePlugin } from "@electron-forge/plugin-vite";
 import { FusesPlugin } from "@electron-forge/plugin-fuses";
@@ -18,51 +15,28 @@ const config: ForgeConfig = {
   },
   rebuildConfig: {},
   makers: [
-    new MakerSquirrel({
-      setupIcon: "assets/icons/icon.ico",
-      iconUrl:
-        "https://raw.githubusercontent.com/rsathishtechit/video-player/master/assets/icons/windows/256x256.png",
-      loadingGif: "assets/icons/windows/installer.gif",
-    }),
-    new MakerDMG({
-      format: "ULFO",
-      icon: "assets/icons/icon.icns",
-      background: "assets/icons/dmg-background.png",
-      contents: [
-        { x: 448, y: 344, type: "link", path: "/Applications" },
-        { x: 192, y: 344, type: "file", path: "Nilaa Player.app" },
-      ],
-    }),
-    new MakerRpm({
-      options: {
-        icon: "assets/icons/linux/256x256.png",
-        categories: ["AudioVideo", "Video"],
-        description:
-          "A modern desktop video player for offline course management and progress tracking",
-        homepage: "https://github.com/rsathishtechit/video-player",
-      },
-    }),
-    new MakerDeb({
-      options: {
-        icon: "assets/icons/linux/256x256.png",
-        categories: ["AudioVideo", "Video"],
-        description:
-          "A modern desktop video player for offline course management and progress tracking",
-        homepage: "https://github.com/rsathishtechit/video-player",
-      },
-    }),
-    new MakerSnap({
-      options: {
-        summary: "A desktop video player for managing offline courses",
-        description:
-          "Nilaa Player is a desktop video player designed for managing offline courses with progress tracking, section navigation, and a modern interface.",
-        grade: "stable",
-        confinement: "strict",
-        icon: "assets/icons/linux/512x512.png",
-        categories: ["AudioVideo", "Player"],
-        plugs: ["audio-playback", "desktop", "home", "removable-media"],
-      },
-    }),
+    {
+      name: "@electron-forge/maker-squirrel",
+      config: {},
+    },
+    {
+      name: "@electron-forge/maker-zip",
+      platforms: ["darwin"],
+      config: {},
+    },
+    {
+      name: "@electron-forge/maker-dmg",
+      platforms: ["darwin"],
+      config: {},
+    },
+    {
+      name: "@electron-forge/maker-deb",
+      config: {},
+    },
+    {
+      name: "@electron-forge/maker-rpm",
+      config: {},
+    },
   ],
   publishers: [
     new PublisherGithub({
