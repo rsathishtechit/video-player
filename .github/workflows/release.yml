@@ -17,7 +17,7 @@ jobs:
       - name: publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: pnpm publish
+        run: pnpm run publish
 
   publish_on_mac:
     permissions: write-all
@@ -34,7 +34,7 @@ jobs:
       - name: publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: pnpm publish
+        run: pnpm run publish
 
   publish_on_win:
     permissions: write-all
@@ -51,4 +51,4 @@ jobs:
       - name: publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: pnpm publish
+        run: pnpm run publish
