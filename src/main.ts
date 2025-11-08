@@ -8,6 +8,7 @@ import {
 } from "electron";
 import path from "node:path";
 import fs from "fs/promises";
+import { initAutoUpdater } from "./utils/autoUpdater";
 
 // Prevent Squirrel.Windows from launching the app multiple times during installation/updating/uninstallation
 if (require("electron-squirrel-startup") === true) {
@@ -999,6 +1000,13 @@ app.whenReady().then(async () => {
 
   // Start video server
   createVideoServer();
+
+  // Create video server
+  createVideoServer();
+
+  // Initialize auto-updater
+  const mainWindow = BrowserWindow.getAllWindows()[0];
+  initAutoUpdater(mainWindow);
 
   // Power management: monitor system events
   powerMonitor.on("on-battery", () => {

@@ -22,6 +22,20 @@ interface VideoFileInfo {
 }
 
 // Define the API that will be exposed to the renderer process
+// Update info interface
+interface UpdateInfo {
+  version: string;
+  releaseDate?: string;
+  releaseNotes?: string;
+}
+
+interface ProgressInfo {
+  bytesPerSecond: number;
+  percent: number;
+  transferred: number;
+  total: number;
+}
+
 export interface ElectronAPI {
   // Folder selection
   selectFolder: () => Promise<string | null>;
@@ -70,6 +84,14 @@ export interface ElectronAPI {
     systemIdleTime: number;
     thermalState: string;
   }>;
+
+  // Auto-update handlers
+  checkForUpdates: () => void;
+  startUpdate: () => void;
+  installUpdate: () => void;
+  onUpdateStatus: (
+    callback: (status: string, info?: UpdateInfo | ProgressInfo | Error) => void
+  ) => () => void;
 
   // Subtitle operations
   generateSubtitles: (
@@ -159,6 +181,17 @@ contextBridge.exposeInMainWorld("electronAPI", {
   videoPlaying: (playing: boolean) =>
     ipcRenderer.invoke("video-playing", playing),
   getPowerInfo: () => ipcRenderer.invoke("get-power-info"),
+
+  // Auto-update handlers
+  checkForUpdates: () => ipcRenderer.send("check-for-updates"),
+  startUpdate: () => ipcRenderer.send("start-update"),
+  installUpdate: () => ipcRenderer.send("install-update"),
+  onUpdateStatus: (callback: (status: string, info?: any) => void) => {
+    const listener = (_event: any, status: string, info?: any) =>
+      callback(status, info);
+    ipcRenderer.on("update-status", listener);
+    return () => ipcRenderer.removeListener("update-status", listener);
+  },
 
   // Subtitle operations
   generateSubtitles: (

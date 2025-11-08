@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Breadcrumb from "./Breadcrumb";
+import { UpdateNotification } from "./UpdateNotification";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -81,6 +82,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
             {children}
           </div>
         </div>
+        <UpdateNotification />
       </div>
     </div>
   );
