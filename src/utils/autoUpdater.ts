@@ -1,5 +1,5 @@
 import { autoUpdater } from "electron-updater";
-import { app, BrowserWindow, ipcMain } from "electron";
+import { BrowserWindow, ipcMain } from "electron";
 
 // Configure updater
 autoUpdater.autoDownload = false;

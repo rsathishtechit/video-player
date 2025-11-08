@@ -11,11 +11,11 @@ jobs:
         with:
           node-version: 20
       - name: install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
       - name: publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run publish
+        run: pnpm publish
 
   publish_on_mac:
     permissions: write-all
@@ -26,11 +26,11 @@ jobs:
         with:
           node-version: 20
       - name: install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
       - name: publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run publish
+        run: pnpm publish
 
   publish_on_win:
     permissions: write-all
@@ -41,8 +41,8 @@ jobs:
         with:
           node-version: 20
       - name: install dependencies
-        run: npm ci
+        run: pnpm install --frozen-lockfile
       - name: publish
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: npm run publish
+        run: pnpm publish

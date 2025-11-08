@@ -36,6 +36,13 @@ interface ProgressInfo {
   total: number;
 }
 
+interface SubtitleGenerationProgress {
+  videoId: number;
+  status: "extracting" | "processing" | "completed" | "error";
+  progress: number;
+  message: string;
+}
+
 export interface ElectronAPI {
   // Folder selection
   selectFolder: () => Promise<string | null>;
@@ -109,10 +116,11 @@ export interface ElectronAPI {
   } | null>;
   checkWhisperAvailability: () => Promise<boolean>;
   downloadWhisperModel: (
-    modelName: string
+    modelName: string,
+    callback: (progress: SubtitleGenerationProgress) => void
   ) => Promise<{ success: boolean; modelPath?: string; error?: string }>;
   onSubtitleGenerationProgress: (
-    callback: (progress: any) => void
+    callback: (progress: SubtitleGenerationProgress) => void
   ) => () => void;
 }
 
@@ -186,9 +194,17 @@ contextBridge.exposeInMainWorld("electronAPI", {
   checkForUpdates: () => ipcRenderer.send("check-for-updates"),
   startUpdate: () => ipcRenderer.send("start-update"),
   installUpdate: () => ipcRenderer.send("install-update"),
-  onUpdateStatus: (callback: (status: string, info?: any) => void) => {
-    const listener = (_event: any, status: string, info?: any) =>
-      callback(status, info);
+  onUpdateStatus: (
+    callback: (
+      status: string,
+      info?: UpdateInfo | ProgressInfo | { message?: string }
+    ) => void
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      status: string,
+      info?: UpdateInfo | ProgressInfo | { message?: string }
+    ) => callback(status, info);
     ipcRenderer.on("update-status", listener);
     return () => ipcRenderer.removeListener("update-status", listener);
   },
@@ -212,8 +228,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
     ipcRenderer.invoke("check-whisper-availability"),
   downloadWhisperModel: (modelName: string) =>
     ipcRenderer.invoke("download-whisper-model", modelName),
-  onSubtitleGenerationProgress: (callback: (progress: any) => void) => {
-    const listener = (_event: any, progress: any) => callback(progress);
+  onSubtitleGenerationProgress: (
+    callback: (progress: SubtitleGenerationProgress) => void
+  ) => {
+    const listener = (
+      _event: Electron.IpcRendererEvent,
+      progress: SubtitleGenerationProgress
+    ) => callback(progress);
     ipcRenderer.on("subtitle-generation-progress", listener);
     return () =>
       ipcRenderer.removeListener("subtitle-generation-progress", listener);

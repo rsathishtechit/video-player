@@ -40,22 +40,28 @@ export function UpdateNotification() {
           break;
         case "available":
           setUpdateStatus("available");
-          setUpdateInfo(info as UpdateInfo);
+          if (info && "version" in info) {
+            setUpdateInfo(info as UpdateInfo);
+          }
           break;
         case "not-available":
           setUpdateStatus("not-available");
           break;
         case "progress":
           setUpdateStatus("downloading");
-          setDownloadProgress(info as ProgressInfo);
+          if (info && "percent" in info) {
+            setDownloadProgress(info as ProgressInfo);
+          }
           break;
         case "downloaded":
           setUpdateStatus("downloaded");
-          setUpdateInfo(info);
+          if (info && "version" in info) {
+            setUpdateInfo(info as UpdateInfo);
+          }
           break;
         case "error":
           setUpdateStatus("error");
-          setError(info?.message || "Unknown error");
+          setError((info as { message?: string })?.message || "Unknown error");
           break;
       }
     };
