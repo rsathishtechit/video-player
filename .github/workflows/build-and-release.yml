@@ -133,7 +133,7 @@ jobs:
           NODE_ENV: production
           DEBUG: electron-forge:*,electron-installer-dmg:*
           ELECTRON_BUILDER_EXTRA_ARGS: "--config.asar=true"
-          PYTHON: /usr/bin/python3  # Ensure Python is available for native builds
+          PYTHON: /usr/bin/python3 # Ensure Python is available for native builds
 
       # Platform-specific artifact preparation
       - name: Prepare artifacts (macOS)
