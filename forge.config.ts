@@ -14,19 +14,15 @@ const config: ForgeConfig = {
     executableName: "nilaa-player",
   },
   rebuildConfig: {},
+  // Simplified makers to avoid native-toolchain issues in CI (Squirrel and DMG
+  // both require additional native tools or prebuilt native modules). Using
+  // zip makers across platforms produces distributable artifacts without
+  // invoking platform-specific native installers. If you prefer to produce
+  // DMG/Squirrel installers, see the notes below for CI requirements.
   makers: [
     {
-      name: "@electron-forge/maker-squirrel",
-      config: {},
-    },
-    {
       name: "@electron-forge/maker-zip",
-      platforms: ["darwin"],
-      config: {},
-    },
-    {
-      name: "@electron-forge/maker-dmg",
-      platforms: ["darwin"],
+      platforms: ["darwin", "win32", "linux"],
       config: {},
     },
     {
