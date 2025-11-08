@@ -54,8 +54,7 @@ const config: ForgeConfig = {
     }),
     new MakerSnap({
       options: {
-        summary:
-          "A desktop video player for managing offline courses and tracking progress",
+        summary: "A desktop video player for managing offline courses",
         description:
           "Nilaa Player is a desktop video player designed for managing offline courses with progress tracking, section navigation, and a modern interface.",
         grade: "stable",
