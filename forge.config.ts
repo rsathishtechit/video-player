@@ -29,9 +29,9 @@ const config: ForgeConfig = {
         background: "assets/icons/dmg-background.png",
         contents: [
           { x: 448, y: 344, type: "link", path: "/Applications" },
-          { x: 192, y: 344, type: "file", path: "Nilaa Player.app" }
-        ]
-      }
+          { x: 192, y: 344, type: "file", path: "Nilaa Player.app" },
+        ],
+      },
     },
     {
       name: "@electron-forge/maker-deb",
