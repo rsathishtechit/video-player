@@ -15,6 +15,15 @@ const config: ForgeConfig = {
     icon: "assets/icons/icon", // Electron will automatically choose the right format (.icns for macOS, .ico for Windows, .png for Linux)
     name: "Nilaa Player",
     executableName: "nilaa-player",
+    osxSign: process.env.APPLE_CERTIFICATE_ID && {
+      identity: process.env.APPLE_CERTIFICATE_ID,
+      type: "development",
+    },
+    osxNotarize: process.env.APPLE_ID && {
+      appleId: process.env.APPLE_ID,
+      appleIdPassword: process.env.APPLE_ID_PASSWORD,
+      teamId: process.env.APPLE_TEAM_ID,
+    },
   },
   rebuildConfig: {},
   makers: [
@@ -46,7 +55,7 @@ const config: ForgeConfig = {
     new MakerSnap({
       options: {
         summary:
-          "A desktop video player for offline course management and progress tracking",
+          "A desktop video player for managing offline courses and tracking progress",
         description:
           "Nilaa Player is a desktop video player designed for managing offline courses with progress tracking, section navigation, and a modern interface.",
         grade: "stable",
