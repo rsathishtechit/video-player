@@ -1,6 +1,6 @@
 import type { ForgeConfig } from "@electron-forge/shared-types";
 import { MakerSquirrel } from "@electron-forge/maker-squirrel";
-import { MakerZIP } from "@electron-forge/maker-zip";
+import { MakerDMG } from "@electron-forge/maker-dmg";
 import { MakerDeb } from "@electron-forge/maker-deb";
 import { MakerRpm } from "@electron-forge/maker-rpm";
 import { MakerSnap } from "@electron-forge/maker-snap";
@@ -15,15 +15,6 @@ const config: ForgeConfig = {
     icon: "assets/icons/icon", // Electron will automatically choose the right format (.icns for macOS, .ico for Windows, .png for Linux)
     name: "Nilaa Player",
     executableName: "nilaa-player",
-    osxSign: process.env.APPLE_CERTIFICATE_ID && {
-      identity: process.env.APPLE_CERTIFICATE_ID,
-      type: "development",
-    },
-    osxNotarize: process.env.APPLE_ID && {
-      appleId: process.env.APPLE_ID,
-      appleIdPassword: process.env.APPLE_ID_PASSWORD,
-      teamId: process.env.APPLE_TEAM_ID,
-    },
   },
   rebuildConfig: {},
   makers: [
@@ -33,7 +24,15 @@ const config: ForgeConfig = {
         "https://raw.githubusercontent.com/rsathishtechit/video-player/master/assets/icons/windows/256x256.png",
       loadingGif: "assets/icons/windows/installer.gif",
     }),
-    new MakerZIP({}, ["darwin"]),
+    new MakerDMG({
+      format: "ULFO",
+      icon: "assets/icons/icon.icns",
+      background: "assets/icons/dmg-background.png",
+      contents: [
+        { x: 448, y: 344, type: "link", path: "/Applications" },
+        { x: 192, y: 344, type: "file", path: "Nilaa Player.app" }
+      ]
+    }),
     new MakerRpm({
       options: {
         icon: "assets/icons/linux/256x256.png",
@@ -68,10 +67,13 @@ const config: ForgeConfig = {
   publishers: [
     new PublisherGithub({
       repository: {
-        owner: "rsathishtechit", // Replace with your GitHub username
-        name: "video-player", // Replace with your repository name
+        owner: "rsathishtechit",
+        name: "video-player",
       },
-      prerelease: true, // Set to false for stable releases
+      prerelease: false,
+      draft: true,
+      authToken: process.env.GITHUB_TOKEN,
+      tagPrefix: "v",
     }),
   ],
   plugins: [
