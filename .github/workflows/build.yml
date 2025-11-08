@@ -9,6 +9,8 @@ jobs:
       - uses: actions/setup-node@master
         with:
           node-version: 20
+      - name: Install pnpm
+        run: npm install -g pnpm
       - name: install dependencies
         run: pnpm install --frozen-lockfile
       - name: build
@@ -21,6 +23,8 @@ jobs:
       - uses: actions/setup-node@master
         with:
           node-version: 20
+      - name: Install pnpm
+        run: npm install -g pnpm
       - name: install dependencies
         run: pnpm install --frozen-lockfile
       - name: build
@@ -33,6 +37,8 @@ jobs:
       - uses: actions/setup-node@master
         with:
           node-version: 20
+      - name: Install pnpm
+        run: npm install -g pnpm
       - name: install dependencies
         run: pnpm install --frozen-lockfile
       - name: build
