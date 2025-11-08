@@ -20,26 +20,39 @@ const config: ForgeConfig = {
   makers: [
     new MakerSquirrel({
       setupIcon: "assets/icons/icon.ico",
+      iconUrl:
+        "https://raw.githubusercontent.com/rsathishtechit/video-player/master/assets/icons/windows/256x256.png",
+      loadingGif: "assets/icons/windows/installer.gif",
     }),
     new MakerZIP({}, ["darwin"]),
     new MakerRpm({
       options: {
         icon: "assets/icons/linux/256x256.png",
+        categories: ["AudioVideo", "Video"],
+        description:
+          "A modern desktop video player for offline course management and progress tracking",
+        homepage: "https://github.com/rsathishtechit/video-player",
       },
     }),
     new MakerDeb({
       options: {
         icon: "assets/icons/linux/256x256.png",
+        categories: ["AudioVideo", "Video"],
+        description:
+          "A modern desktop video player for offline course management and progress tracking",
+        homepage: "https://github.com/rsathishtechit/video-player",
       },
     }),
     new MakerSnap({
       options: {
         summary: "A modern desktop video player for offline course management",
-        description: "Nilaa Player is a desktop video player designed for managing offline courses with progress tracking, section navigation, and a modern interface.",
+        description:
+          "Nilaa Player is a desktop video player designed for managing offline courses with progress tracking, section navigation, and a modern interface.",
         grade: "stable",
         confinement: "strict",
         icon: "assets/icons/linux/512x512.png",
         categories: ["AudioVideo", "Player"],
+        plugs: ["audio-playback", "desktop", "home", "removable-media"],
       },
     }),
   ],

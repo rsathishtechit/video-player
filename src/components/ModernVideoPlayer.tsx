@@ -41,6 +41,10 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [whisperAvailable, setWhisperAvailable] = useState(false);
   const [subtitlePath, setSubtitlePath] = useState<string | null>(null);
+  const [volume, setVolume] = useState<number>(() => {
+    const savedVolume = localStorage.getItem("videoPlayerVolume");
+    return savedVolume ? parseFloat(savedVolume) : 1;
+  });
   const videoContainerRef = React.useRef<HTMLDivElement>(null);
   const videoElementRef = React.useRef<HTMLVideoElement>(null);
   const timeUpdateThrottleRef = React.useRef(0);
@@ -57,6 +61,14 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
       loadSubtitlePath();
     }
   }, [selectedVideo]);
+
+  // Apply volume when video element is loaded or volume changes
+  useEffect(() => {
+    const videoElement = videoElementRef.current;
+    if (videoElement) {
+      videoElement.volume = volume;
+    }
+  }, [volume]);
 
   useEffect(() => {
     // Listen for subtitle generation progress
@@ -267,7 +279,7 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
   const loadVideoProgress = async () => {
     setLoading(true);
     try {
-      const progressMap = new Map<VideoProgress>();
+      const progressMap = new Map<number, VideoProgress>();
 
       for (const video of course.videos) {
         try {
@@ -360,9 +372,9 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
 
     // If the last watched video is completed, find the next incomplete video
     if (isVideoCompleted(lastWatchedVideo.id)) {
-      const currentIndex = course.videos.findIndex(
-        (v) => v.id === lastWatchedVideo!.id
-      );
+      const currentIndex = lastWatchedVideo
+        ? course.videos.findIndex((v) => v.id === lastWatchedVideo.id)
+        : -1;
       const nextVideo = course.videos.find(
         (video, index) => index > currentIndex && !isVideoCompleted(video.id)
       );
@@ -688,6 +700,14 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
                   controls
                   crossOrigin="anonymous"
                   className="w-full h-full object-contain"
+                  onVolumeChange={(e) => {
+                    const newVolume = (e.target as HTMLVideoElement).volume;
+                    setVolume(newVolume);
+                    localStorage.setItem(
+                      "videoPlayerVolume",
+                      newVolume.toString()
+                    );
+                  }}
                   onLoadedMetadata={async (e) => {
                     if (!selectedVideo) return;
                     const video = e.target as HTMLVideoElement;
@@ -715,18 +735,20 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
                             await window.electronAPI.getCourseWithVideos(
                               course.id
                             );
-                          // Find and update the video in the course
+                          // Update the course object with refreshed data
+                          Object.assign(course, updatedCourse);
+                        } catch (refreshError) {
+                          console.warn(
+                            "Could not refresh course data:",
+                            refreshError
+                          );
+                          // Fallback: just update the duration in the current course object
                           const videoIndex = course.videos.findIndex(
                             (v) => v.id === selectedVideo.id
                           );
                           if (videoIndex !== -1) {
                             course.videos[videoIndex].duration = video.duration;
                           }
-                        } catch (refreshError) {
-                          console.warn(
-                            "Could not refresh course data:",
-                            refreshError
-                          );
                         }
                       }
 
@@ -884,7 +906,6 @@ const ModernVideoPlayer: React.FC<ModernVideoPlayerProps> = ({
                 {course.videos.map((video, index) => {
                   const progress = getVideoProgress(video.id);
                   const progressPercentage = getProgressPercentage(video.id);
-                  const isCompleted = isVideoCompleted(video.id);
                   const isSelected = selectedVideo?.id === video.id;
 
                   return (
